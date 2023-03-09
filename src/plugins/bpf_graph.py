@@ -73,11 +73,6 @@ class BpfGraph(interfaces.plugins.PluginInterface):
                 description="Linux kernel",
                 architectures=["Intel32", "Intel64"],
             ),
-            requirements.StringRequirement(
-                name="directory",
-                description="Directory where output files are written",
-                optional=False,
-            ),
             requirements.PluginRequirement(
                 name="bpf_listmaps",
                 plugin=MapList,
@@ -99,7 +94,7 @@ class BpfGraph(interfaces.plugins.PluginInterface):
     def _get_color(cls, hashable) -> str:
         return "#" + hex(hash(hashable))[-6:].upper()
 
-    def _generate_graph(self, directory: str) -> List[str]:
+    def _generate_graph(self) -> List[str]:
         G = nx.Graph()
 
         # add all the maps, color nodes according to the map type
@@ -135,9 +130,7 @@ class BpfGraph(interfaces.plugins.PluginInterface):
                             "name": prog.name,
                             "label": prog.attach_to
                             + f"\n{prog.aux.id}/{prog.name}",
-                            "fillcolor": self._get_color(
-                                prog.type
-                            ),
+                            "fillcolor": self._get_color(prog.type),
                         },
                     )
                 ]
@@ -193,25 +186,24 @@ class BpfGraph(interfaces.plugins.PluginInterface):
                 ]
             )
 
-
         A = nx.nx_agraph.to_agraph(G)
 
-        with open("/dumps/graph.dot", "w") as f:
+        filename = str(
+            self.context.layers["base_layer"].location
+        ).split("/")[-1] + ".dot"
+        with open(f"/io/output/{filename}", "w") as f:
             A.write(f)
 
-        return ["file1", "file2"]
+        return [f"{filename}"]
 
     def _generator(
         self,
-        directory: str,
     ) -> Iterable[Tuple[int, Tuple]]:
-        for filename in self._generate_graph(directory):
+        for filename in self._generate_graph():
             yield (0, tuple(("OK", filename)))
 
     def run(self):
-        directory = str(self.config.get("directory"))
-
         return renderers.TreeGrid(
             self.columns,
-            self._generator(directory),
+            self._generator(),
         )
