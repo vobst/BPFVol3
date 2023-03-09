@@ -13,7 +13,7 @@ VOL_UTIL=${VOL_BASE}/utility
 PLUG="$(pwd)/src/plugins"
 UTIL="$(pwd)/src/utility"
 PATCH="$(pwd)/src/patches"
-SYM="$(pwd)/io/isf"
+SYM="$(pwd)/io/symbols"
 
 function print_usage {
   echo "Available options:

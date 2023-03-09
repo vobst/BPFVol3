@@ -1,13 +1,5 @@
 # BPFVol3
 
-## TODO
-
-- remove Docker-specific paths from the code `/io/...` -> usally Volatility is installed and available as `vol.py`,
-  so e.g. dump files to `$PWD`... **generally** the plugin must be usable as easy as the docker version
-- add installation instructions for "normal" volatility installation (i.e. move xyz files to `plugins` directory of
-  Volatility) or provide instructions to configure plugin path
-- be consistent with the naming e.g. `/isf` directory vs. `symbols` (`symbols/linux` in Volatility installation)
-
 ## Description
 
 BPFVol3 is a set of
@@ -23,6 +15,7 @@ forensic experts. Do __not__ use it in real-world investigations.
 - [Docker](https://docs.docker.com/engine/install/)
 
 ## Installation
+### Using the plugin with Docker (recommended)
 1. clone this repository
 ```
 git clone https://github.com/vobst/BPFVol3
@@ -37,27 +30,44 @@ cd BPFVol3
 ./scripts/vol.sh --pull
 ```
 
+### Plugin for existing Volatility3 installation
+When using this method, it is recommended to stick to the __same__
+commit of Volatility3 as the Docker container, see
+`scripts/dockerfile_vol` for the current hash.
+1. clone this repository
+```
+git clone https://github.com/vobst/BPFVol3
+cd BPFVol3
+```
+2. copy the files under `source/plugins` to a place where Volatility
+can find them, e.g., `${VOLHOME}/volatility3/plugins/linux`,
+or make use of the `--plugin-dirs` command line option when
+running `vol.py`.
+3. create the directory `${VOLHOME}/volatility3/utility/`
+and copy the contents of `src/utility` into it
+4. `git apply` all of the patches in `src/patches`.
+
 ## Getting Started
 We assume that you have some memory dump that you want to analyze.
 If not, check out the `./docs/examples` folder.
 1. place the dump in `io/dumps`
 2. obtain the ISF file for the kernel in the dump and place it in
-`./io/isf`. You can read the banner using
+`./io/symbols`. You can read the banner using
 ```
 ./scripts/vol.sh --run
-vol -f /io/dumps/<name_of_dump> banners.Banners
+vol.py -f /io/dumps/<name_of_dump> banners.Banners
 ```
 2. Alternatively: download the debug package for the kernel in the dump,
 copy the debug kernel and its `System.map` into the `./io/kernels`
 folder. Next, generate the ISF file
 ```
-./scripts/prepare_kernel.sh <path/to/kernel> <path/to/System.map> --isf
+./scripts/prepare_kernel.sh <path/to/kernel> <path/to/System.map> --symbols
 ```
 3. start the container and run some plugin, any files that produced by
 the analysis can be found under the `./io/output` folder
 ```
 ./scripts/vol.sh --run
-vol -f /io/dumps/<name_of_dump> linux.bpf_graph
+vol.py -f /io/dumps/<name_of_dump> linux.bpf_graph
 ```
 
 ## Documentation

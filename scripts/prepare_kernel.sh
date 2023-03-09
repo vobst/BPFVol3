@@ -6,7 +6,7 @@ if [[ $# < 2 ]]
 then
   echo "Renames a kernel and its System.map to a unique value." >&2
   echo "Optionally: Generate ISF file." >&2
-  echo "Usage: $0 <kernel> <system_map> [--isf]" >&2
+  echo "Usage: $0 <kernel> <system_map> [--symbols]" >&2
   exit 1
 fi
 
@@ -19,7 +19,7 @@ mv $system_map "$(dirname $system_map)/$kernelhash.map" || true
 
 kernel="/io/kernels/${kernelhash}.elf"
 system_map="/io/kernels/${kernelhash}.map"
-isf="/io/isf/${kernelhash}.isf.json"
+symbols="/io/symbols/${kernelhash}.isf.json"
 d2j="/opt/vol/dwarf2json/dwarf2json"
 
 if [[ $# = 3 ]]
@@ -34,7 +34,7 @@ docker run 							\
   -v "$(pwd)/io:/io"						\
   -w="/io" 							\
   like_vol:latest						\
-  /bin/bash -c "$d2j linux --elf $kernel --system-map $system_map | tee $isf"
+  /bin/bash -c "$d2j linux --elf $kernel --system-map $system_map | tee $symbols"
 
-isf="./io/isf/${kernelhash}.isf.json"
-./scripts/fix_symbols.sh ${isf}
+symbols="./io/symbols/${kernelhash}.isf.json"
+./scripts/fix_symbols.sh ${symbols}

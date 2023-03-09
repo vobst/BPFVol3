@@ -20,7 +20,7 @@ and 31 maps ( 1 array, 9 hash, 5 lru_hash, 13 percpu_array,
 1 perf_event_array, 2 prog_array). An overview of the processes that
 hold BPF resources can be obtained using the `bpf_listproc` plugin.
 ```
-# vol -f /io/dumps/krie-3410c66d-26be0e1ef560.elf linux.bpf_listproc
+# vol.py -f /io/dumps/krie-3410c66d-26be0e1ef560.elf linux.bpf_listproc
 Volatility 3 Framework 2.4.2
 Progress:  100.00               Stacking attempts finished
 PID     COMM    PROGS   MAPS    LINKS
@@ -33,7 +33,7 @@ PID     COMM    PROGS   MAPS    LINKS
 To find out more about how krie works we can list all programs in the
 dump and grep for the one we are interested in.
 ```
-# vol -f /io/dumps/krie-3410c66d-26be0e1ef560.elf linux.bpf_listprogs | rg 'kprobe_commit_creds'
+# vol.py -f /io/dumps/krie-3410c66d-26be0e1ef560.elf linux.bpf_listprogs | rg 'kprobe_commit_creds'
 OFFSET (V)      ID      NAME    TYPE    LOADED AT       HELPERS MAPS    LINK TYPE       ATTACH TYPE     ATTACH TO
 ...
 0xc90002afc000 279     kprobe_commit_creds  BpfProgType.BPF_PROG_TYPE_KPROBE        2023-03-09 14:01:10.990377      bpf_probe_read_kernel,bpf_get_current_comm,bpf_get_current_task,__htab_map_lookup_elem,bpf_get_smp_processor_id,bpf_perf_event_output,bpf_ktime_get_ns,bpf_probe_read_compat_str,percpu_array_map_lookup_elem,bpf_send_signal,bpf_get_current_pid_tgid        50,51,66,54     n.a.    kprobe/commit_creds
@@ -57,7 +57,7 @@ SIGKILL, might be sent to the current process.
 Using the `bpf_listmaps` plugin, we can find out which maps the program
 is using.
 ```
-# vol -f /io/dumps/krie-3410c66d-26be0e1ef560.elf linux.bpf_listmaps --id 50 51 66 54
+# vol.py -f /io/dumps/krie-3410c66d-26be0e1ef560.elf linux.bpf_listmaps --id 50 51 66 54
 Volatility 3 Framework 2.4.2
 Progress:  100.00               Stacking attempts finished
 OFFSET (V)      ID      NAME    TYPE    KEY SIZE        VALUE SIZE      MAX ENTRIES
