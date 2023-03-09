@@ -1,3 +1,9 @@
+"""
+SPDX-FileCopyrightText: © 2023 Valentin Obst <legal@bpfvol3.de>
+
+SPDX-License-Identifier: MIT
+"""
+
 """A Volatility3 plugin that tries to display information
 typically accessed via bpftool map (list|dump) subcommands"""
 from typing import Iterable, Callable, Tuple, List, Any

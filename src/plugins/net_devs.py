@@ -1,5 +1,11 @@
-"""Volatility3 plugin that displays information about network devices.
-Stolen from: Sheffer_Shaked_Docker/plugins/ifconfig.py"""
+"""
+Created by: Ofek Shaked and Amir Sheffer as part of the Volatilty 2022
+    plugin context.
+
+Modified by: Valentin Obst
+"""
+
+"""Volatility3 plugin that displays information about network devices."""
 
 from typing import Iterable, List, Tuple, Optional
 import logging

@@ -1,3 +1,9 @@
+"""
+SPDX-FileCopyrightText: © 2023 Valentin Obst <legal@bpfvol3.de>
+
+SPDX-License-Identifier: MIT
+"""
+
 """A Volatility3 plugin that tries to display information
 typically accessed via bpftool prog (list|dump) subcommands"""
 from typing import Iterable, Callable, Tuple, List, Any
@@ -87,19 +93,15 @@ class ProgList(interfaces.plugins.PluginInterface):
             self.context, self.config["kernel"], filter_func
         ):
             if dump_jited:
-                with open(
-                    "/io/output/"
+                with self.open(
                     f"{hex(prog.prog.vol.get('offset'))}_prog_"
                     f"{prog.aux.id}_mdisasm",
-                    "wb",
                 ) as f:
                     f.write(prog.dump_mcode().encode("UTF-8"))
             if dump_xlated:
-                with open(
-                    "/io/output/"
+                with self.open(
                     f"{hex(prog.prog.vol.get('offset'))}_prog_"
                     f"{prog.aux.id}_bdisasm",
-                    "wb",
                 ) as f:
                     f.write(prog.dump_bcode().encode("UTF-8"))
             yield (0, prog.row())

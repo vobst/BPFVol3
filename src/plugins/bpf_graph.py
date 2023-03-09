@@ -1,3 +1,9 @@
+"""
+SPDX-FileCopyrightText: © 2023 Valentin Obst <legal@bpfvol3.de>
+
+SPDX-License-Identifier: MIT
+"""
+
 """A Volatility3 plugin that tries to visualize the state of the BPF
 subsystem as a graph."""
 from typing import Iterable, Callable, Tuple, List, Any
@@ -191,7 +197,7 @@ class BpfGraph(interfaces.plugins.PluginInterface):
         filename = str(
             self.context.layers["base_layer"].location
         ).split("/")[-1] + ".dot"
-        with open(f"/io/output/{filename}", "w") as f:
+        with self.open(f"{filename}") as f:
             A.write(f)
 
         return [f"{filename}"]
