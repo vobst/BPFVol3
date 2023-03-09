@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+set -xeuo pipefail
+
+function upd() {
+  VOL_BASE="/opt/vol/volatility3/volatility3"
+  VOL_PLUG="${VOL_BASE}/plugins/linux"
+  cp /plug/* ${VOL_PLUG}
+}
+
+git apply "/patches/v2.4.1-netdev.patch"
+
+upd
+
+echo 'function upd() {
+  VOL_BASE="/opt/vol/volatility3/volatility3"
+  VOL_PLUG="${VOL_BASE}/plugins/linux"
+  cp /plug/* ${VOL_PLUG}
+}' >> ~/.zsh_functions
+
+echo 'alias vol="python3 vol.py"' >> ~/.zshrc
+
+exec /bin/zsh
