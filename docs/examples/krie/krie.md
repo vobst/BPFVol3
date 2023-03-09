@@ -1,8 +1,6 @@
 # krie
-You can use the files in this folder to follow along with the case
-study:
-- ISF: 8439f715506529093a281b9e9f733853.7z
 - Dump: 3a3549ff75bafbf103edf0ca3a5cdb39.7z
+- ISF: 38af54e756b759b46c7e6810b98a6bdf.7z
 
 [Linux Kernel Runtime Integrity with eBPF (krie)](https://github.com/gui774ume/krie)
 is a very interesting research project by Guillaume Fournier.
