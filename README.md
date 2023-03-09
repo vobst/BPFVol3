@@ -1,4 +1,15 @@
 # BPFVol3
+
+## TODO
+
+- remove Docker-specific paths from the code `/io/...` -> usally Volatility is installed and available as `vol.py`,
+  so e.g. dump files to `$PWD`... **generally** the plugin must be usable as easy as the docker version
+- add installation instructions for "normal" volatility installation (i.e. move xyz files to `plugins` directory of
+  Volatility) or provide instructions to configure plugin path
+- be consistent with the naming e.g. `/isf` directory vs. `symbols` (`symbols/linux` in Volatility installation)
+
+## Description
+
 BPFVol3 is a set of
 [Volatility3](https://github.com/volatilityfoundation/volatility3)
 plugins for analyzing the
