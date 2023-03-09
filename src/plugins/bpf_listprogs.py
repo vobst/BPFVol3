@@ -87,15 +87,19 @@ class ProgList(interfaces.plugins.PluginInterface):
             self.context, self.config["kernel"], filter_func
         ):
             if dump_jited:
-                with self.open(
+                with open(
+                    "/io/output/"
                     f"{hex(prog.prog.vol.get('offset'))}_prog_"
-                    f"{prog.aux.id}_mdisasm"
+                    f"{prog.aux.id}_mdisasm",
+                    "wb",
                 ) as f:
                     f.write(prog.dump_mcode().encode("UTF-8"))
             if dump_xlated:
-                with self.open(
+                with open(
+                    "/io/output/"
                     f"{hex(prog.prog.vol.get('offset'))}_prog_"
-                    f"{prog.aux.id}_bdisasm"
+                    f"{prog.aux.id}_bdisasm",
+                    "wb",
                 ) as f:
                     f.write(prog.dump_bcode().encode("UTF-8"))
             yield (0, prog.row())
