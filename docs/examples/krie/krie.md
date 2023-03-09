@@ -1,4 +1,9 @@
 # krie
+You can use the files in this folder to follow along with the case
+study:
+- ISF: 8439f715506529093a281b9e9f733853.7z
+- Dump: 3a3549ff75bafbf103edf0ca3a5cdb39.7z
+
 [Linux Kernel Runtime Integrity with eBPF (krie)](https://github.com/gui774ume/krie)
 is a very interesting research project by Guillaume Fournier.
 The work contains original ideas on the problem of mitigating Linux
@@ -71,7 +76,7 @@ Finally, we can call the `bpf_graph` plugin to get a visual
 representation all the programs, maps and processes. Programs are
 connected to the maps they use and both colored according to their type,
 processes are connected to the BPF resources they hold via fd.
-I must admit, it is very well arranged, but we are planning to
+I must admit, it is not very well arranged, but we are planning to
 make the graph more useful in the future.
 
 ![krie-3410c66d-26be0e1ef560.elf.png](../../media/krie-3410c66d-26be0e1ef560.elf.png)
