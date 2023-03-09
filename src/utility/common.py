@@ -451,7 +451,12 @@ class BpfLink:
         link: interfaces.objects.ObjectInterface,
         context: interfaces.context.ContextInterface,
     ):
-        self.link = link
+        # our caller might give us a pointer to any type, lets unify it
+        self.link = (
+            link
+            if link.vol.type_name == make_vol_type("bpf_link", context)
+            else link.dereference().cast("bpf_link")
+        )
         self.context = context
         self.vmlinux = self.context.modules["kernel"]
         self.types = Enum(

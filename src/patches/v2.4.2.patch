@@ -1,0 +1,40 @@
+diff --git a/volatility3/framework/symbols/linux/__init__.py b/volatility3/framework/symbols/linux/__init__.py
+index ce07167e..8dd41540 100644
+--- a/volatility3/framework/symbols/linux/__init__.py
++++ b/volatility3/framework/symbols/linux/__init__.py
+@@ -28,6 +28,7 @@ class LinuxKernelIntermedSymbols(intermed.IntermediateSymbolTable):
+         self.set_type_class("fs_struct", extensions.fs_struct)
+         self.set_type_class("files_struct", extensions.files_struct)
+         self.set_type_class("kobject", extensions.kobject)
++        self.set_type_class('net_device', extensions.net_device)
+         # Might not exist in the current symbols
+         self.optional_set_type_class("module", extensions.module)
+ 
+@@ -225,6 +226,7 @@ class LinuxUtilities(interfaces.configuration.VersionableInterface):
+ 
+         for fd_num, filp in enumerate(fds):
+             if filp != 0:
++                filp = filp.dereference().cast(file_type)
+                 full_path = LinuxUtilities.path_for_file(context, task, filp)
+ 
+                 yield fd_num, filp, full_path
+diff --git a/volatility3/framework/symbols/linux/extensions/__init__.py b/volatility3/framework/symbols/linux/extensions/__init__.py
+index 5ab8f1aa..5c148e5a 100644
+--- a/volatility3/framework/symbols/linux/extensions/__init__.py
++++ b/volatility3/framework/symbols/linux/extensions/__init__.py
+@@ -1101,3 +1101,12 @@ class xdp_sock(objects.StructType):
+     def get_state(self):
+         # xdp_sock.state is an enum
+         return self.state.lookup()
++
++class net_device(objects.StructType):
++    def get_ip_ptr(self):
++        # in kernel < 3.0.0, ip_ptr is a void pointer, so we need to cast it to in_device
++        return self.ip_ptr.dereference().cast('in_device')
++
++    def get_ip6_ptr(self):
++        # in kernel < 3.0.0, ip6_ptr is a void pointer, so we need to cast it to inet6_dev
++        return self.ip6_ptr.dereference().cast('inet6_dev')
+diff --git a/volshell.py b/volshell.py
+old mode 100644
+new mode 100755

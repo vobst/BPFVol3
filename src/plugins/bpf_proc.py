@@ -84,9 +84,10 @@ class BpfPslist(interfaces.plugins.PluginInterface):
         progs = []
         maps = []
         links = []
-        for pid, _, _task, fd_fields in Lsof.list_fds(
+        fds_generator = Lsof.list_fds(
             context, symbol_table
-        ):
+        )
+        for pid, comm, _task, fd_fields in fds_generator:
             if pid == 1:
                 prev_pid = 1
                 prev_task = _task
@@ -109,6 +110,9 @@ class BpfPslist(interfaces.plugins.PluginInterface):
             else:
                 continue
 
+        if progs or maps or links:
+            yield prev_task, progs, maps, links
+
     def _generator(
         self,
     ) -> Iterable[Tuple[int, Tuple]]:
@@ -125,7 +129,7 @@ class BpfPslist(interfaces.plugins.PluginInterface):
                         utility.array_to_string(task.comm),
                         ",".join([str(prog.aux.id) for prog in progs]),
                         ",".join([str(_map.map.id) for _map in maps]),
-                        ",".join([str(link.id) for link in links]),
+                        ",".join([str(link.link.id) for link in links]),
                     )
                 ),
             )
