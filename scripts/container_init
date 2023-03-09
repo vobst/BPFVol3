@@ -8,7 +8,7 @@ function upd() {
   cp /plug/* ${VOL_PLUG}
 }
 
-git apply "/patches/v2.4.1-netdev.patch"
+git apply "/patches/v2.4.2.patch"
 
 upd
 
