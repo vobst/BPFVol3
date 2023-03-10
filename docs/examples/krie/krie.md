@@ -47,15 +47,15 @@ To get more details, we can use the same plugin to obtain the machine
 code of the program. Here we can see that, indeed, signal number 9, i.e.,
 SIGKILL, might be sent to the current process.
 ```
-# cat /io/output/0xc90002afc000_prog_279_mdisasm | rg 'signal' -C2
+# rg 'signal' -C2 /io/output/0xc90002afc000_prog_279_mdisasm
  0xffffa0084285: 0f 84 46 c1 ff ff                            je 0xffffa00803d1
  0xffffa008428b: bf 09 00 00 00                               mov edi, 9
  0xffffa0084290: e8 ab 76 12 e1                               call 0xffff811ab940       # bpf_send_signal
  0xffffa0084295: e9 37 c1 ff ff                               jmp 0xffffa00803d1
 ```
 
-Using the `bpf_listmaps` plugin, we can find out which maps the program
-is using.
+With the `bpf_listmaps` plugin, we can find out which maps the program 
+uses.
 ```
 # vol.py -f /io/dumps/krie-3410c66d-26be0e1ef560.elf linux.bpf_listmaps --id 50 51 66 54
 Volatility 3 Framework 2.4.2
