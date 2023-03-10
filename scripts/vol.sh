@@ -14,6 +14,9 @@ PLUG="$(pwd)/src/plugins"
 UTIL="$(pwd)/src/utility"
 PATCH="$(pwd)/src/patches"
 SYM="$(pwd)/io/symbols"
+ZSH_HISTORY="$(pwd)/.zsh_history"
+
+test -e "$ZSH_HISTORY" || touch "$ZSH_HISTORY"
 
 function print_usage {
   echo "Available options:
@@ -34,11 +37,12 @@ while (("$#")); do
 		  --rm 						\
 		  -it 						\
 		  -v "$(pwd)/io:/io" 				\
-		  -v ${PLUG}:/plug				\
-		  -v ${UTIL}:${VOL_UTIL}			\
-		  -v ${PATCH}:/patches				\
-		  -v ${SYM}:${VOL_SYM} 				\
-		  -v "$(pwd)/scripts/container_init:/bin/container_init"\
+		  -v "${PLUG}:/plug"				\
+		  -v "${UTIL}:${VOL_UTIL}"			\
+		  -v "${PATCH}:/patches"			\
+		  -v "${SYM}:${VOL_SYM}"			\
+		  -v "$(pwd)/scripts/container_init:/bin/container_init" \
+		  -v "${ZSH_HISTORY}:/root/.zsh_history"        \
 		  -w="${VOL_BASE}/.." 				\
 		  bpfvol3:latest				\
 		  /bin/container_init				|| \
