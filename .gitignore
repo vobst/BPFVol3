@@ -1,3 +1,5 @@
 io/*/*
 !io/*/.gitkeep
 __pycache__
+src/plugins/files.py
+src/plugins/mount.py
