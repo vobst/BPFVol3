@@ -1,6 +1,6 @@
 # krie
-- Dump: 3a3549ff75bafbf103edf0ca3a5cdb39.7z
-- ISF: 38af54e756b759b46c7e6810b98a6bdf.7z
+- Dump: [3a3549ff75bafbf103edf0ca3a5cdb39.7z](https://owncloud.fraunhofer.de/index.php/s/i88sl3p69HbxpAC)
+- ISF: [38af54e756b759b46c7e6810b98a6bdf.7z](https://owncloud.fraunhofer.de/index.php/s/lRtAXFOO1KMsiuH)
 
 [Linux Kernel Runtime Integrity with eBPF (krie)](https://github.com/gui774ume/krie)
 is a very interesting research project by Guillaume Fournier.
