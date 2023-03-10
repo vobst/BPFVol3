@@ -1,4 +1,5 @@
 # BPFVol3
+![alpha_logo.jpeg](./docs/media/alpha_logo.jpeg)
 
 ## Description
 
