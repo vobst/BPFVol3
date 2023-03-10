@@ -1,7 +1,7 @@
 """Common script functionality"""
 from __future__ import annotations
 import logging
-from typing import Iterable, Optional, Tuple, List, Set, Any, Dict
+from typing import Iterable, Optional, Tuple, List, Set, Any, Dict, Callable, cast
 from json import dumps
 from itertools import chain
 from capstone import (
@@ -17,7 +17,7 @@ from datetime import datetime
 from enum import Enum, Flag
 from volatility3.framework.symbols.linux import extensions
 from volatility3.framework import constants
-from volatility3.framework.objects.utility import *
+from volatility3.framework.objects.utility import array_of_pointers, pointer_to_string, array_to_string
 from volatility3.framework import interfaces
 
 from volatility3.plugins.linux.net_devs import Ifconfig
@@ -27,31 +27,31 @@ vollog = logging.getLogger(__name__)
 
 # TODO: not good that we hard code "kernel" here
 def make_vol_type(
-    name: str,
+    type_name: str,
     context: interfaces.context.ContextInterface,
 ) -> str:
-    """Prepend symbol table to type name."""
+    """Prepend symbol table name to type name."""
     vmlinux = context.modules["kernel"]
-    return str(vmlinux.symbol_table_name + constants.BANG + name)
+    return str(vmlinux.symbol_table_name + constants.BANG + type_name)
 
 
 def get_vol_template(
-    name: str,
+    type_name: str,
     context: interfaces.context.ContextInterface,
 ) -> interfaces.objects.Template:
     """Get the template for a type name."""
     vmlinux = context.modules["kernel"]
-    return vmlinux.get_type(make_vol_type(name, context))
+    return vmlinux.get_type(make_vol_type(type_name, context))
 
 
 def get_object(
-    name: str,
+    type_name: str,
     offset: int,
     context: interfaces.context.ContextInterface,
 ) -> interfaces.objects.ObjectInterface:
     """Construct object from type name and offset."""
     vmlinux = context.modules["kernel"]
-    return vmlinux.object(name, offset, absolute=True)
+    return vmlinux.object(type_name, offset, absolute=True)
 
 
 # TODO now available under:
@@ -197,9 +197,9 @@ class XArray:
     ) -> Optional[interfaces.objects.ObjectInterface]:
         entry = None
 
-        while entry == None:
+        while not entry:
             entry = self.xas_get_entry_from_offset()
-            if entry == None:
+            if not entry:
                 self.xas_offset += 1
                 while not self.xas_offset_valid():
                     self.xas_offset = self.xas_node.offset + 1
@@ -255,6 +255,7 @@ class BtfKind(Enum):
 
 class BtfException(Exception):
     """Raised when obtaining BTF is not possible"""
+    pass
 
 
 class Btf:
@@ -302,7 +303,7 @@ class Btf:
             )
             for vsi in self._list_vector(btf_type, kind, vlen):
                 s += self.sprintf_bytes(
-                    b[vsi.offset : vsi.offset + vsi.size], vsi.type
+                    b[vsi.offset: vsi.offset + vsi.size], vsi.type
                 )
         elif kind == BtfKind.BTF_KIND_VAR:
             # btf_var_show
@@ -381,6 +382,7 @@ class Btf:
         """List the vector that succeeds some kinds of types"""
         start = btf_type.vol.offset + btf_type.vol.size
         elem_type = self._kind_to_vtype(kind)
+        # TODO what happens if elem_type is None?
         elem_sz = get_vol_template(elem_type, self.context).vol.size
         for i in range(0, vlen):
             obj = get_object(
@@ -390,9 +392,7 @@ class Btf:
 
     def _kind_to_vtype(self, kind: BtfKind) -> Optional[str]:
         """Map a kind to the type of the data that follows it"""
-        if kind == BtfKind.BTF_KIND_DATASEC:
-            return "btf_var_secinfo"
-        return None
+        return "btf_var_secinfo" if kind == BtfKind.BTF_KIND_DATASEC else None
 
 
 class TraceEventType:
@@ -554,11 +554,12 @@ class BpfLink:
             case _:
                 vollog.log(
                     constants.LOGLEVEL_V,
-                    f"Bug or kernel update.",
+                    "Bug or kernel update.",
                 )
                 return None
 
     @property
+    # TODO return type missing
     def attach_type(self):
         """Returns: The attach type of the link"""
         if self._attach_type:
@@ -593,12 +594,13 @@ class BpfLink:
             case _:
                 vollog.log(
                     constants.LOGLEVEL_V,
-                    f"Bug or kernel update.",
+                    "Bug or kernel update.",
                 )
         return self._attach_type
 
     @property
     def attach_to(self) -> str:
+        # TODO what if typed_link is None
         match self.type:
             case self.types.BPF_LINK_TYPE_ITER:
                 return f"iter/{pointer_to_string(self.typed_link.tinfo.reg_info.target, 9999)}"
@@ -666,7 +668,7 @@ class BpfProg:
             if not self.aux.has_valid_member("btf"):
                 vollog.log(
                     constants.LOGLEVEL_V,
-                    f"Kernel version before v5.0-rc1 does not support"
+                    "Kernel version before v5.0-rc1 does not support"
                     "prog BTF",
                 )
                 raise BtfException
@@ -675,7 +677,7 @@ class BpfProg:
             elif int(self.aux.btf) == 0:
                 vollog.log(
                     constants.LOGLEVEL_V,
-                    f"Program does not have BTF info attached",
+                    "Program does not have BTF info attached",
                 )
                 raise BtfException
             else:
@@ -1027,7 +1029,7 @@ class BpfMap:
             if not self.map.has_valid_member("btf"):
                 vollog.log(
                     constants.LOGLEVEL_V,
-                    f"Kernel version before v4.18-rc1 does not support"
+                    "Kernel version before v4.18-rc1 does not support"
                     "map BTF",
                 )
                 raise BtfException
@@ -1036,7 +1038,7 @@ class BpfMap:
             elif int(self.map.btf) == 0:
                 vollog.log(
                     constants.LOGLEVEL_V,
-                    f"Map does not have BTF info attached",
+                    "Map does not have BTF info attached",
                 )
                 raise BtfException
             else:
@@ -1090,6 +1092,7 @@ class BpfMap:
 
     def dump(self) -> str:
         """Dump the map's content as a string."""
+        # TODO what if self.btf or self.vmlinux_btf is None?
         ret = dict()
         for k, v in self.items():
             if self.btf_key_type_id:
@@ -1111,6 +1114,7 @@ class BpfMap:
         return dumps(ret)
 
     def _gen_array(self):
+        # TODO container_of might return None -> array could be None
         array = container_of(
             int(self.map.vol.offset), "bpf_array", "map", self.context
         )
@@ -1146,7 +1150,7 @@ class LinkList:
         if not vmlinux.has_type("bpf_link"):
             vollog.log(
                 constants.LOGLEVEL_V,
-                f"Kernel version has no BPF links",
+                "Kernel version has no BPF links",
             )
             return []
         # IDR for links was introduced in a3b80e1, v5.8-rc1
@@ -1157,13 +1161,13 @@ class LinkList:
         else:
             vollog.log(
                 constants.LOGLEVEL_V,
-                f"Kernel version not (yet) supported",
+                "Kernel version not (yet) supported",
             )
             return []
 
         xarray = XArray(link_idr.idr_rt, "bpf_link", context)
 
         for link in xarray.xa_for_each():
-            if filter_func(link):
+            if filter_func(cast(BpfLink, link)):
                 continue
             yield BpfLink(link, context)
