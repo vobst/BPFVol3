@@ -39,7 +39,6 @@ from volatility3.plugins.linux.net_devs import Ifconfig
 vollog = logging.getLogger(__name__)
 
 
-# TODO: not good that we hard code "kernel" here
 def make_vol_type(
     type_name: str,
     context: interfaces.context.ContextInterface,
@@ -68,8 +67,6 @@ def get_object(
     return vmlinux.object(type_name, offset, absolute=True)
 
 
-# TODO now available under:
-# volatility3.framework.symbols.linux.LinuxUtilities
 def container_of(
     addr: int,
     type_name: str,
@@ -96,11 +93,6 @@ def container_of(
 
 
 def ns_since_boot2datetime(ns_since_boot: int):
-    """TODO: See declined pull request
-    https://github.com/volatilityfoundation/volatility3/pull/606
-    And the Vol2 feature:
-    https://github.com/volatilityfoundation/volatility/blob/master/volatility/plugins/linux/common.py#L253
-    """
     return datetime.today()
 
 
@@ -250,7 +242,6 @@ class XArray:
 
 
 class BtfKind(Enum):
-    """TODO: Can I get variants of unnamed enums from symbols?"""
 
     BTF_KIND_UNKN = 0
     BTF_KIND_INT = 1
@@ -282,9 +273,8 @@ class BtfException(Exception):
 
 class Btf:
     """Map a kind to the type of the data that follows it"""
-    kind_to_vtype = {
-            BtfKind.BTF_KIND_DATASEC: "btf_var_secinfo"
-            }
+
+    kind_to_vtype = {BtfKind.BTF_KIND_DATASEC: "btf_var_secinfo"}
 
     def __init__(
         self,
@@ -413,7 +403,7 @@ class Btf:
             vollog.log(
                 constants.LOGLEVEL_V,
                 "Listing of vector for BTF kind not (yet) supported: "
-                f"{kind}"
+                f"{kind}",
             )
             return []
         elem_sz = get_vol_template(elem_type, self.context).vol.size
@@ -424,9 +414,7 @@ class Btf:
             yield obj
 
 
-
 class TraceEventType:
-    """TODO: Can I get variants of unnamed enums from symbols?"""
 
     TRACE_EVENT_FL_FILTERED_BIT = 0
     TRACE_EVENT_FL_CAP_ANY_BIT = 1
@@ -441,7 +429,6 @@ class TraceEventType:
 
 
 class TraceEventFlag(Flag):
-    """TODO: Can I get variants of unnamed enums from symbols?"""
 
     TRACE_EVENT_FL_FILTERED = (
         1 << TraceEventType.TRACE_EVENT_FL_FILTERED_BIT
@@ -514,8 +501,7 @@ class BpfLink:
     ) -> Optional[interfaces.objects.ObjectInterface]:
         """Tries to map a bpf_link to the, more specific,
         surrounding bpf_.*?_link using its .type (not sure if this
-        is possible). TODO: hardcoding of types breaks backwards/
-        forwards compatibility.
+        is possible).
         """
         match self.type:
             case self.types.BPF_LINK_TYPE_ITER:
@@ -589,8 +575,6 @@ class BpfLink:
                 return None
 
     @property
-    # TODO find solution for kernel Enums that makes them global without
-    # hardcoding
     def attach_type(self):
         """Returns: The attach type of the link"""
         if self._attach_type:
@@ -794,8 +778,6 @@ class BpfProg:
                         }
                     )
                 except Exception as E:
-                    # Probably call to a function within the BPF
-                    # program itself. TODO: Follow control flow.
                     vollog.log(
                         constants.LOGLEVEL_V,
                         f"Unable to resolve address of call {i} ({E})",
@@ -945,7 +927,7 @@ class BpfProg:
     def link(self) -> Optional[BpfLink]:
         """Returns:
         A link that references the program or None.
-        TODO: Can multiple links reference the same prog?"""
+        """
         if self._link:
             return self._link
         for link in LinkList.list_links(self.context):
