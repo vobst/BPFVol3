@@ -18,6 +18,6 @@ echo 'function upd() {
   cp /plug/* ${VOL_PLUG}
 }' >> ~/.zsh_functions
 
-echo 'alias vol="python3 vol.py"' >> ~/.zshrc
+echo 'alias vol="python3 /opt/vol/volatility3/vol.py"' >> ~/.zshrc
 
 exec /bin/zsh
