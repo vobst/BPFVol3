@@ -22,10 +22,10 @@ that might be used by the program
 
 The understood command line parameters are:
 - `--id`: list of space-separated IDs to filter the output
-- `--dump-xlated`: write the bytecode representation of the program to
-a text file
-- `--dump-jited`: write the machine code representation of the program
+- `--dump-xlated`: write the bytecode representation of the program(s)
 to a text file
+- `--dump-jited`: write the machine code representation of the
+program(s) to a text file
 
 ## Technical Documentation
 On load, each BPF object is assigned an ID, which is unique per object
