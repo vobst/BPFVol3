@@ -1,5 +1,5 @@
 # BPFVol3
-![alpha_logo.jpeg](./docs/media/alpha_logo.jpeg)
+<img src="https://user-images.githubusercontent.com/89150207/224386992-f97755d1-ccf0-474d-bcd7-6d7f247d9103.jpeg" width=40% height=40%>
 
 ## Description
 
