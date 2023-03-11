@@ -26,12 +26,12 @@ cd BPFVol3
 ```
 ./scripts/vol.sh --build
 ```
-2. Alternatively: Pull the latest image from DockerHub
+2. alternatively: pull the latest image from DockerHub
 ```
 ./scripts/vol.sh --pull
 ```
 
-### Plugin for existing Volatility3 installation
+### Using the plugin with an existing Volatility3 installation
 When using this method, it is recommended to stick to the __same__
 commit of Volatility3 as the Docker container, see
 `scripts/dockerfile_vol` for the current hash.
@@ -43,29 +43,29 @@ cd BPFVol3
 2. copy the files under `source/plugins` to a place where Volatility
 can find them, e.g., `${VOLHOME}/volatility3/plugins/linux`,
 or make use of the `--plugin-dirs` command line option when
-running `vol.py`.
+running `vol.py`
 3. create the directory `${VOLHOME}/volatility3/utility/`
-and copy the contents of `src/utility` into it
-4. `git apply` all of the patches in `src/patches`.
+and copy the contents of `src/utility` into it (set VOLHOME to the root
+of your Volatility3 installation)
+4. `git apply` all of the patches in `src/patches`
 
 ## Getting Started
 We assume that you have some memory dump that you want to analyze.
-If not, check out the `./docs/examples` folder.
-1. place the dump in `io/dumps`
-2. obtain the ISF file for the kernel in the dump and place it in
-`./io/symbols`. You can read the banner using
+If not, check out the `docs/examples` folder.
+1. place the dump in `io/dumps`; you can now read the banner using
 ```
 ./scripts/vol.sh --run
 vol.py -f /io/dumps/<name_of_dump> banners.Banners
 ```
-2. Alternatively: download the debug package for the kernel in the dump,
-copy the debug kernel and its `System.map` into the `./io/kernels`
-folder. Next, generate the ISF file
+2. obtain the ISF file for the kernel in the dump and place it in
+`io/symbols`
+2. alternatively: download the debug package for the kernel in the dump,
+copy the debug kernel and its `System.map` into the `io/kernels`
+folder; you can now generate the ISF file yourself
 ```
 ./scripts/prepare_kernel.sh <path/to/kernel> <path/to/System.map> --symbols
 ```
-3. start the container and run some plugin, any files that produced by
-the analysis can be found under the `./io/output` folder
+3. start the container and run some plugin
 ```
 ./scripts/vol.sh --run
 vol.py -f /io/dumps/<name_of_dump> linux.bpf_graph
@@ -75,7 +75,7 @@ vol.py -f /io/dumps/<name_of_dump> linux.bpf_graph
 - user manuals for the different plugins can be found in the
 `docs/` folder
 - case studies (including memory dumps and symbol files) can be found
-in the `./docs/examples` folder
+in the `docs/examples` folder
 - below you can get an overview of the project
 
 ![project_tree.svg](./docs/media/project_tree.svg)
