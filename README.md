@@ -51,16 +51,16 @@ of your Volatility3 installation)
 
 ## Getting Started
 We assume that you have some memory dump that you want to analyze.
-If not, check out the `./docs/examples` folder.
+If not, check out the `docs/examples` folder.
 1. place the dump in `io/dumps`; you can now read the banner using
 ```
 ./scripts/vol.sh --run
 vol.py -f /io/dumps/<name_of_dump> banners.Banners
 ```
 2. obtain the ISF file for the kernel in the dump and place it in
-`./io/symbols`
+`io/symbols`
 2. alternatively: download the debug package for the kernel in the dump,
-copy the debug kernel and its `System.map` into the `./io/kernels`
+copy the debug kernel and its `System.map` into the `io/kernels`
 folder; you can now generate the ISF file yourself
 ```
 ./scripts/prepare_kernel.sh <path/to/kernel> <path/to/System.map> --symbols
@@ -75,7 +75,7 @@ vol.py -f /io/dumps/<name_of_dump> linux.bpf_graph
 - user manuals for the different plugins can be found in the
 `docs/` folder
 - case studies (including memory dumps and symbol files) can be found
-in the `./docs/examples` folder
+in the `docs/examples` folder
 - below you can get an overview of the project
 
 ![project_tree.svg](./docs/media/project_tree.svg)
