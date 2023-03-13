@@ -1,6 +1,7 @@
 """
-Created by: Ofek Shaked and Amir Sheffer as part of the Volatilty 2022
+Created by: Ofek Shaked and Amir Sheffer as part of the Volatilty 2021
     plugin context.
+https://github.com/volatilityfoundation/community3/tree/master/Sheffer_Shaked_Docker
 
 Modified by: Valentin Obst
 """
