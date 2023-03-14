@@ -1,6 +1,7 @@
 """Common script functionality"""
 from __future__ import annotations
 import logging
+import re
 from typing import (
     Iterable,
     Optional,
@@ -723,6 +724,7 @@ class BpfProg:
         self._funcs = None
         self._symbol_table = None
         self._name = None
+        self._maps = None
 
     @property
     def name(self):
@@ -753,6 +755,17 @@ class BpfProg:
         # add all functions, including "main"
         for func in chain([self], self.funcs):
             ret.update({int(func.prog.bpf_func): func.name})
+        # add all maps (accesses to array maps may be jited to direct
+        # memory loads and stores, i.e., they are not performed
+        # through an accesor function that accepts a pointer to
+        # the bpf_map object)
+        for m in self.maps:
+            ret.update(
+                {
+                    int(m.map.vol.get("offset"))
+                    + 0xFFFF000000000000: m.name
+                }
+            )
         # all calls to kernel functions
         for i in chain(
             self.mdisasm, *(func.mdisasm for func in self.funcs)
@@ -885,6 +898,7 @@ class BpfProg:
         return self._attach_type
 
     def dump_mcode(self) -> str:
+        re_imm = re.compile(r"^.*?(0xffff[0-9a-f]+?)$")
         ret = []
         for i in chain(
             self.mdisasm, *(func.mdisasm for func in self.funcs)
@@ -895,10 +909,10 @@ class BpfProg:
                 ret.append(f"\n{label}:")
             # annotate at the end of the line
             end = ""
-            if i.insn_name() == "call":
-                end = "\t# " + self.symbol_table.get(
-                    int(i.op_str, 16), ""
-                )
+
+            imm = re.search(re_imm, i.op_str)
+            if imm:
+                end = "\t# " + self.get_symbol(int(imm.group(1), 16))
 
             ret.append(
                 f" {hex(i.address)}: "
@@ -910,6 +924,25 @@ class BpfProg:
             )
 
         return "\n".join(ret)
+
+    def get_symbol(self, address: int) -> str:
+        """returns:
+        the closest preceeding symbol of the program (within somewhat
+        arbitrary bounds, to balance false positives and false
+        negatives)
+        """
+        max_dist = 4096
+        current = (max_dist + 1, "")
+        for saddr, sname in self.symbol_table.items():
+            dist = address - saddr
+            if dist < 0:
+                continue
+            if dist == 0:
+                return sname
+            if dist < current[0]:
+                current = (dist, f"{sname} + {hex(dist)}")
+
+        return current[1]
 
     def dump_bcode(self) -> str:
         ret = []
@@ -971,6 +1004,8 @@ class BpfProg:
     def maps(self) -> List[BpfMap]:
         """Returns:
         Maps used by the program."""
+        if self._maps:
+            return self._maps
         if self.aux.used_map_cnt > 0:
             map_ptrs = array_of_pointers(
                 self.aux.used_maps.dereference(),
@@ -978,9 +1013,11 @@ class BpfProg:
                 make_vol_type("bpf_map", self.context),
                 self.context,
             )
-            return [BpfMap(m, self.context) for m in map_ptrs]
+            self._maps = [BpfMap(m, self.context) for m in map_ptrs]
         else:
-            return []
+            self._maps = []
+
+        return self._maps
 
     @property
     def bdisasm(self) -> Iterable[Any]:
