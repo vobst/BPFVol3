@@ -66,7 +66,7 @@ while (("$#")); do
 	  	# Build the vol container
 	        docker build 					\
 		  -t bpfvol3:latest 				\
-		  -f ./scripts/dockerfile_vol .
+		  - < ./scripts/dockerfile_vol
 
 		exit 0
 		;;
