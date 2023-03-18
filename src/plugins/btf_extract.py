@@ -49,6 +49,7 @@ class BtfExtract(interfaces.plugins.PluginInterface):
             requirements.TranslationLayerRequirement(
                 name="primary",
                 description="Memory layer to scan",
+                architectures=["Intel32", "Intel64"],
             ),
         ]
 
