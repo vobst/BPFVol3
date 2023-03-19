@@ -5,11 +5,26 @@ of the kernel symbol table.
 
 import logging
 import itertools
+from collections import namedtuple
+from struct import unpack
 import string
 from hashlib import md5
 from volatility3.framework import interfaces
+from typing import Generator
 
 vollog = logging.getLogger(__name__)
+
+from cffi import FFI
+
+ffi = FFI()
+ffi.cdef(
+    """
+    int64_t search_rel_pointer(const char* data, uint64_t len, uint64_t needle, uint64_t offset);
+"""
+)
+lib = ffi.dlopen(
+    "./volatility3/utility/cffi/search-ksymtab-rel-helper.so"
+)
 
 
 def isprintable(_bytes: bytes):
@@ -97,14 +112,24 @@ class StringTable:
                 f.write(f"{hex(e[0])} - {e[1]}\n")
 
     def dbg(self):
+        ret = []
         for e in self.table:
-            vollog.debug(f"{hex(e[0])} - {e[1]}")
+            ret.append(f"{hex(e[0])} - {e[1]}")
+        ret.append(self.info())
+        return "\n".join(ret)
+
+    def info(self) -> str:
+        return (
+            f"StringTable: offset={hex(self.offset)} "
+            f"size={len(self.raw_data)} "
+            f"entries={len(self.table)} md5={self.hash}"
+        )
+
+    @property
+    def hash(self):
         m = md5()
         m.update(self.raw_data)
-        vollog.debug(
-            f"Summary: offset={self.offset} size={len(self.raw_data)}"
-            f" entries={len(self.table)} md5={m.digest()}"
-        )
+        return m.digest().hex()
 
     def dump_raw(self, filename):
         with open(filename, "wb") as f:
@@ -114,7 +139,6 @@ class StringTable:
         strings = set({"input_event", "prepare_kernel_cred", "yield"})
         for _, name in self.table:
             if name in strings:
-                print(name)
                 strings.remove(name)
         return len(strings) == 0
 
@@ -131,30 +155,100 @@ class StringTable:
             p = e + 1
 
 
+SymtabEntry = namedtuple(
+    "SymtabEntry", ["value_offset", "name_offset", "namespace_offset"]
+)
+setattr(SymtabEntry, "size", 12)
+
+
 def find_symtab_boundary(
     layer: interfaces.layers.TranslationLayerInterface,
     offset: int,
     direction: int,
     strtab: StringTable,
 ) -> int:
-    """Given an offset that is within a symbol table that belongs to
-    strtab, returns the last byte that is inside the symbol table in
-    a given direction.
+    """Given an 'offset' that points to a symbol entry that lies within
+    a symbol table that belongs to 'strtab', returns a pointer to the
+    last entry that is inside the symbol table in a given 'direction'.
     """
-    return 0
+    while True:
+        entry = SymtabEntry(
+            *unpack("<iii", layer.read(offset, SymtabEntry.size))
+        )
+        # check if the entry references a string within strtab
+        if strtab.lookup_addr(entry.name_offset + offset + 4) == None:
+            # revert the last step
+            offset -= direction * SymtabEntry.size
+            break
+        vollog.debug(
+            "Identified symbol table entry for "
+            f"{strtab.lookup_addr(entry.name_offset + offset + 4)[1]}"
+        )
+        offset += direction * SymtabEntry.size
+
+    return offset
 
 
 class Ksymtab:
     def __init__(self, raw_data: bytes, offset: int):
-        self.table = []
+        self.table = [
+            SymtabEntry(
+                *unpack("<iii", raw_data[i : i + SymtabEntry.size])
+            )
+            for i in range(0, len(raw_data), SymtabEntry.size)
+        ]
         self.raw_data = raw_data
         self.offset = offset
+
+    def info(self) -> str:
+        return (
+            f"SymbolTable: offset={hex(self.offset)} "
+            f"size={len(self.raw_data)} "
+            f"entries={len(self.table)} md5={self.hash}"
+        )
+
+    @property
+    def hash(self):
+        m = md5()
+        m.update(self.raw_data)
+        return m.digest().hex()
+
+    def dump_raw(self, filename):
+        with open(filename, "wb") as f:
+            f.write(self.raw_data)
+
+    def is_probably_kernel(self):
+        return len(self.table) > 1000
 
 
 class PosRefScanner(interfaces.layers.ScannerInterface):
     """Scans a layer for positional references to a particular offset
     'needle'."""
 
+    thread_safe = True
+
     def __init__(self, needle: int):
         super().__init__()
         self.needle = needle
+
+    def __call__(
+        self, data: bytes, data_offset: int
+    ) -> Generator[int, None, None]:
+        """Runs through the 'data' looking for position relative
+        references to the location 'needle', and yields all offsets
+        where the references are found."""
+        orig_offset = data_offset
+        while True:
+            # Our scan assumes that the chunks that Vol3 gives us are
+            # 4 byte aligned. If this should ever be false, fail early.
+            assert data_offset % 4 == 0
+            cbuf = ffi.from_buffer(data)
+            find_pos = lib.search_rel_pointer(
+                cbuf, len(data), self.needle, data_offset
+            )
+            if find_pos < 0:
+                break
+            if find_pos + (data_offset - orig_offset) < self.chunk_size:
+                yield find_pos + data_offset
+            data = data[find_pos + 4 :]
+            data_offset += find_pos + 4

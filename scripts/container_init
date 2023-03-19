@@ -2,6 +2,14 @@
 
 set -xeuo pipefail
 
+VOL_BASE="/opt/vol/volatility3/volatility3"
+VOL_UTIL="${VOL_BASE}/utility"
+VOL_PLUG="${VOL_BASE}/plugins/linux"
+
+pushd $VOL_UTIL/cffi
+make clean && make
+popd
+
 function upd() {
   VOL_BASE="/opt/vol/volatility3/volatility3"
   VOL_PLUG="${VOL_BASE}/plugins/linux"
@@ -11,6 +19,8 @@ function upd() {
 git apply "/patches/v2.4.2.patch"
 
 upd
+
+cd 
 
 echo 'function upd() {
   VOL_BASE="/opt/vol/volatility3/volatility3"
