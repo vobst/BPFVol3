@@ -1,7 +1,13 @@
+"""
+This plugin attempts to extract the kernel symbol table
+__ksymtab from a Linux memory dump. On it's own, this is not providing
+sufficient information to power Vol3 analyses. (On my machine, it
+provides ~12500 symbols,
+try cat /proc/kallsyms | rg ' __ksymtab_[^\s]+$' | wc.)
+"""
+
 import logging
-import string
-import itertools
-from typing import List, Iterable
+from typing import List, Iterable, Optional
 
 from volatility3.framework import (
     interfaces,
@@ -12,76 +18,15 @@ from volatility3.framework.configuration import requirements
 from volatility3.framework.layers import scanners
 from volatility3.framework.renderers import format_hints
 
+from volatility3.utility.ksymtab import (
+    StringTable,
+    find_strtab_boundary,
+    Ksymtab,
+    find_symtab_boundary,
+    PosRefScanner,
+)
+
 vollog = logging.getLogger(__name__)
-
-
-class StringTable:
-    def __init__(self, raw_data: bytes, offset: int = 0):
-        self.table = list(self.parse_raw(raw_data, offset))
-        self.offset = offset
-        self.raw_data = raw_data
-
-    def lookup_addr(self, addr: int):
-        res = None
-        if addr - self.offset > 0:
-            res = (
-                addr,
-                bytes(
-                    itertools.takewhile(
-                        lambda x: x != 0,
-                        self.raw_data[addr - self.offset :],
-                    )
-                ).decode("ASCII"),
-            )
-            if not res[1]:
-                res = None
-        return res
-
-    def lookup_name(self, name):
-        return next((x for x in self.table if x[1] == name), None)
-
-    def rebase(self, offset: int):
-        old_offset = self.offset
-        self.offset = offset
-        self.table = [
-            (x[0] - old_offset + offset, x[1]) for x in self.table
-        ]
-
-    def items(self):
-        return self.table
-
-    def __setitem__(self, key, value):
-        self.table[key] = value
-
-    def __getitem__(self, key):
-        return self.table[key]
-
-    def dump(self, filename):
-        with open(filename, "w") as f:
-            for e in self.table:
-                f.write("0x{:x} - {}\n".format(*e))
-
-    def dump_raw(self, filename):
-        with open(filename, "wb") as f:
-            f.write(self.raw_data)
-
-    @staticmethod
-    def parse_raw(raw_data: bytes, offset: int):
-        p = 0
-        while True:
-            e = raw_data.find(b"\x00", p)
-            if e == -1:
-                break
-            name = raw_data[p:e].decode("ASCII")
-            if name:
-                yield (p + offset, name)
-            p = e + 1
-
-
-class Ksymtab:
-    def __init__(self):
-        self.table = []
-        self.offset = 0
 
 
 class KsymtabExtract(interfaces.plugins.PluginInterface):
@@ -102,87 +47,78 @@ class KsymtabExtract(interfaces.plugins.PluginInterface):
         ]
 
     @classmethod
-    def _search_string_tables_fast(
+    def _search_string_tables(
         cls,
         context: interfaces.context.ContextInterface,
         layer: interfaces.layers.TranslationLayerInterface,
     ) -> Iterable[StringTable]:
-
-        printable_chars = set(bytes(string.printable, "ASCII"))
-
-        def isprintable(_bytes: bytes):
-            nonlocal printable_chars
-            return all(b in printable_chars for b in _bytes)
-
-        def find_strtab_boundary(
-            layer: interfaces.layers.TranslationLayerInterface,
-            offset: int,
-            direction: int,
-        ) -> int:
-            """Given an offset that is within a string table, returns
-            the boundary of the string table in a given direction"""
-            i = 0
-            null_count = 0
-            while True:
-                b = layer.read(offset + direction * i, 1)
-                if isprintable(b):
-                    null_count = 0
-                    i += 1
-                    continue
-                elif b == b"\x00":
-                    null_count += 1
-                    # heuristic: three consecutive null bytes shall not
-                    #   appear within a string table
-                    if null_count > 2:
-                        i -= 3
-                        break
-                    i += 1
-                    continue
-                else:
-                    # only printable and null bytes shall appear in a
-                    # string table
-                    i -= 1 + null_count
-                    break
-            return offset + direction * i
-
+        """Extracts string tables from the dump"""
         # heuristic: pick some string where we are pretty certain that
-        #   it exists within the kernel string table
+        #   it is in the kernel string table across as many
+        #   versions and configurations as possible; old GPL core kernel
+        #   functions might be good
         for offset in layer.scan(
             context=context,
-            scanner=scanners.BytesScanner(b"unregister_kprobe\x00"),
+            scanner=scanners.BytesScanner(b"pipe_lock\x00"),
         ):
             start = find_strtab_boundary(layer, offset, -1)
             end = find_strtab_boundary(layer, offset, 1) + 1
-            yield StringTable(layer.read(start, end - start)+b'\x00', start)
+            strtab = StringTable(
+                layer.read(start, end - start) + b"\x00", start
+            )
+            if strtab.is_probably_kernel():
+                yield strtab
+            else:
+                vollog.info(f"Rejecting strtab at {offset} since it"
+                            " pobably is not kernel")
 
     @classmethod
-    def _probably_kernel_strtab(cls, strtab: StringTable) -> bool:
-        return True
+    def _search_symbol_tables(
+        cls,
+        context: interfaces.context.ContextInterface,
+        layer: interfaces.layers.TranslationLayerInterface,
+        strtab: StringTable
+    ) -> Iterable[Ksymtab]:
+        """Searches for the kernel symbol table that belongs to the
+        string table."""
+        for offset in layer.scan(
+            context=context,
+            scanner=PosRefScanner(strtab.lookup_name("pipe_lock")[0]),
+        ):
+            start = find_symtab_boundary(layer, offset, -1, strtab)
+            end = find_symtab_boundary(layer, offset, 1, strtab) + 1
+            symtab = Ksymtab(
+                layer.read(start, end - start), start
+            )
+            yield symtab
 
     @classmethod
     def ksymtab_extract(
         cls,
         context: interfaces.context.ContextInterface,
-        virt_layer: interfaces.layers.TranslationLayerInterface,
+        virt_layer: Optional[
+            interfaces.layers.TranslationLayerInterface
+        ],
         phys_layer: interfaces.layers.TranslationLayerInterface,
     ) -> Iterable[Ksymtab]:
-        """Extracts the kernel symbol table from the dump."""
-        vollog.info(f"{phys_layer.metadata.architecture=}")
-        for strtab in cls._search_string_tables_fast(
-            context, phys_layer
-        ):
-            if not cls._probably_kernel_strtab(strtab):
-                continue
-            strtab.dump_raw(f"{hex(strtab.offset)}_strtab.sec")
-            print(strtab.table)
-
-            yield Ksymtab()
+        """Extracts the kernel symbol table from the dump. There should
+        only be one."""
+        for strtab in cls._search_string_tables(context, phys_layer):
+            strtab.dbg()
+            for symtab in cls._search_symbol_tables(
+                context, phys_layer, strtab
+            ):
+                yield symtab
 
     def _generator(self):
+        # For better performance, make sure that we always scan the
+        # physical memory.
         layer = self.context.layers[self.config["primary"]]
         if isinstance(layer, layers.intel.Intel):
             virt_layer = layer
-            phys_layer = self.context.layers[layer.config["memory_layer"]]
+            phys_layer = self.context.layers[
+                layer.config["memory_layer"]
+            ]
         else:
             virt_layer = None
             phys_layer = layer
