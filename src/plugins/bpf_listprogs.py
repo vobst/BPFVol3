@@ -7,7 +7,6 @@ SPDX-License-Identifier: MIT
 """A Volatility3 plugin that tries to display information
 typically accessed via bpftool prog (list|dump) subcommands"""
 from typing import Iterable, Callable, Tuple, List, Any, Optional
-from datetime import datetime
 
 from volatility3.framework import interfaces
 from volatility3.framework import renderers
@@ -28,7 +27,7 @@ class ProgList(interfaces.plugins.PluginInterface):
         ("ID", int),
         ("NAME", str),
         ("TYPE", str),
-        ("LOADED AT", datetime),
+        ("LOADED AT", int),
         ("HELPERS", str),
         ("MAPS", str),
         ("LINK TYPE", str),
