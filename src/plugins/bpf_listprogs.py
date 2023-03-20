@@ -6,7 +6,7 @@ SPDX-License-Identifier: MIT
 
 """A Volatility3 plugin that tries to display information
 typically accessed via bpftool prog (list|dump) subcommands"""
-from typing import Iterable, Callable, Tuple, List, Any
+from typing import Iterable, Callable, Tuple, List, Any, Optional
 from datetime import datetime
 
 from volatility3.framework import interfaces
@@ -137,7 +137,7 @@ class ProgList(interfaces.plugins.PluginInterface):
 
     @classmethod
     def create_filter(
-        cls, pid_list: List[int] = None, id_list: List[int] = None
+        cls, pid_list: Optional[List[int]] = None, id_list: Optional[List[int]] = None
     ) -> Callable[[Any], bool]:
         """Constructs a filter function for BPF programs.
         Note:

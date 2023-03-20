@@ -13,6 +13,7 @@ from typing import (
     Callable,
     cast,
 )
+from collections import namedtuple
 from json import dumps
 from itertools import chain
 from capstone import (
@@ -667,6 +668,16 @@ class BpfLink:
                 return ""
 
 
+BpfProgSym = namedtuple("BpfProgSym", ["name", "kind"])
+
+
+class BpfProgSymKind(Enum):
+    MAIN = 1
+    FUNC = 2
+    HELPER = 3
+    MAP = 4
+
+
 class BpfProg:
     def __init__(
         self,
@@ -748,13 +759,27 @@ class BpfProg:
         return self._name
 
     @property
-    def symbol_table(self) -> Dict[int, str]:
+    def symbol_table(self) -> Dict[int, BpfProgSym]:
         if self._symbol_table:
             return self._symbol_table
         ret = dict()
-        # add all functions, including "main"
-        for func in chain([self], self.funcs):
-            ret.update({int(func.prog.bpf_func): func.name})
+        # add the main program
+        ret.update(
+            {
+                int(self.prog.bpf_func): BpfProgSym(
+                    self.name, BpfProgSymKind.MAIN
+                )
+            }
+        )
+        # add all functions
+        for func in self.funcs:
+            ret.update(
+                {
+                    int(func.prog.bpf_func): BpfProgSym(
+                        func.name, BpfProgSymKind.FUNC
+                    )
+                }
+            )
         # add all maps (accesses to array maps may be jited to direct
         # memory loads and stores, i.e., they are not performed
         # through an accesor function that accepts a pointer to
@@ -763,7 +788,9 @@ class BpfProg:
             ret.update(
                 {
                     int(m.map.vol.get("offset"))
-                    + 0xFFFF000000000000: m.name
+                    + 0xFFFF000000000000: BpfProgSym(
+                        m.name, BpfProgSymKind.MAP
+                    )
                 }
             )
         # all calls to kernel functions
@@ -771,29 +798,32 @@ class BpfProg:
             self.mdisasm, *(func.mdisasm for func in self.funcs)
         ):
             if i.insn_name() == "call":
-                # check if we already resolved the address
+                # check if we already have a symbol for the address
                 if ret.get(int(i.op_str, 16), None):
                     continue
                 try:  # to resolve helper by mapping address->symbol
                     ret.update(
                         {
-                            int(
-                                i.op_str, 16
-                            ): self.vmlinux.get_symbols_by_absolute_location(
-                                int(i.op_str, 16)
-                            )[
-                                0
-                            ].split(
-                                constants.BANG
-                            )[
-                                1
-                            ]
+                            int(i.op_str, 16): BpfProgSym(
+                                self.vmlinux.get_symbols_by_absolute_location(
+                                    int(i.op_str, 16)
+                                )[
+                                    0
+                                ].split(
+                                    constants.BANG
+                                )[
+                                    1
+                                ],
+                                BpfProgSymKind.HELPER,
+                            )
                         }
                     )
                 except Exception as E:
-                    vollog.log(
+                    # there should always be a symbol as bpf2bpf calls
+                    # are already resolved
+                    vollog.info(
                         constants.LOGLEVEL_V,
-                        f"Unable to resolve address of call {i} ({E})",
+                        f"BUG: Unable to resolve address of call {i} ({E})",
                     )
 
         self._symbol_table = ret
@@ -803,7 +833,7 @@ class BpfProg:
     def funcs(self) -> List[BpfProg]:
         """A 'main' BPF program may call functions that are also
         implemented im BPF, i.e. BPF2BPF calls. This returns the list
-        of all 'such function programs'"""
+        of all such 'function programs'"""
         if self._funcs:
             return self._funcs
 
@@ -816,8 +846,10 @@ class BpfProg:
                 make_vol_type("bpf_prog", self.context),
                 self.context,
             )
+            # the first entry is the main program itself, which we do
+            # not want to include here
             self._funcs = [
-                BpfProg(prog, self.context) for prog in func_ptrs
+                    BpfProg(prog, self.context) for prog in func_ptrs[1:]
             ]
         else:
             self._funcs = []
@@ -904,15 +936,25 @@ class BpfProg:
             self.mdisasm, *(func.mdisasm for func in self.funcs)
         ):
             # annotate above the line, e.g. the beginning of functions
-            label = self.symbol_table.get(i.address, None)
-            if label:
-                ret.append(f"\n{label}:")
+            symbol = self.symbol_table.get(i.address, None)
+            if symbol:
+                ret.append(f"\n{symbol.name}:")
             # annotate at the end of the line
             end = ""
 
             imm = re.search(re_imm, i.op_str)
             if imm:
-                end = "\t# " + self.get_symbol(int(imm.group(1), 16))
+                sym_off = self.get_symbol(int(imm.group(1), 16))
+                if sym_off:
+                    end = (
+                        "\t# "
+                        + f"{sym_off[0].name}"
+                        + (
+                            f" + {hex(sym_off[1])}"
+                            if sym_off[1]
+                            else ""
+                        )
+                    )
 
             ret.append(
                 f" {hex(i.address)}: "
@@ -925,24 +967,26 @@ class BpfProg:
 
         return "\n".join(ret)
 
-    def get_symbol(self, address: int) -> str:
+    def get_symbol(
+        self, address: int
+    ) -> Optional[Tuple[BpfProgSym, int]]:
         """returns:
-        the closest preceeding symbol of the program (within somewhat
+        The closest preceeding symbol in the program (within somewhat
         arbitrary bounds, to balance false positives and false
-        negatives)
+        negatives) along with its distance from the given address.
         """
         max_dist = 4096
-        current = (max_dist + 1, "")
-        for saddr, sname in self.symbol_table.items():
+        current = (None, max_dist + 1)
+        for saddr, symbol in self.symbol_table.items():
             dist = address - saddr
             if dist < 0:
                 continue
             if dist == 0:
-                return sname
-            if dist < current[0]:
-                current = (dist, f"{sname} + {hex(dist)}")
+                return (symbol, 0)
+            if dist < current[1]:
+                current = (symbol, dist)
 
-        return current[1]
+        return current if current[0] != None else None
 
     def dump_bcode(self) -> str:
         ret = []
@@ -1060,9 +1104,11 @@ class BpfProg:
         """Returns:
         Set of all BPF helper, kfunc and BPF2BPF calls that happen in
         the program."""
-        ret = set(self.symbol_table.values())
-        ret.remove(self.name)
-        return ret
+        return set(
+            symbol.name
+            for symbol in self.symbol_table.values()
+            if symbol.kind == BpfProgSymKind.HELPER
+        )
 
 
 class BpfMap:
