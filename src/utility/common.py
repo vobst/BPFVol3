@@ -24,7 +24,6 @@ from capstone import (
     CS_ARCH_X86,
     CS_ARCH_BPF,
 )
-from datetime import datetime
 
 from enum import Enum, Flag
 from volatility3.framework.symbols.linux import extensions
@@ -92,10 +91,6 @@ def container_of(
     member_offset = type_dec.relative_child_offset(member_name)
     container_addr = addr - member_offset
     return get_object(type_name, container_addr, context)
-
-
-def ns_since_boot2datetime(ns_since_boot: int):
-    return datetime.today()
 
 
 class XArray:
@@ -870,7 +865,7 @@ class BpfProg:
             int(self.aux.id),
             self.name,
             str(self.type),
-            ns_since_boot2datetime(int(self.aux.load_time)),
+            int(self.aux.load_time * 10**-6),
             ",".join(self.helpers),
             ",".join([str(m.map.id) for m in self.maps]),
             str(self.link.type) if self.link else "n.a.",
