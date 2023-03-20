@@ -849,7 +849,7 @@ class BpfProg:
             # the first entry is the main program itself, which we do
             # not want to include here
             self._funcs = [
-                    BpfProg(prog, self.context) for prog in func_ptrs[1:]
+                BpfProg(prog, self.context) for prog in func_ptrs[1:]
             ]
         else:
             self._funcs = []

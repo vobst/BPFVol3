@@ -137,7 +137,9 @@ class ProgList(interfaces.plugins.PluginInterface):
 
     @classmethod
     def create_filter(
-        cls, pid_list: Optional[List[int]] = None, id_list: Optional[List[int]] = None
+        cls,
+        pid_list: Optional[List[int]] = None,
+        id_list: Optional[List[int]] = None,
     ) -> Callable[[Any], bool]:
         """Constructs a filter function for BPF programs.
         Note:
