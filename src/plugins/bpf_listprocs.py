@@ -6,7 +6,7 @@ SPDX-License-Identifier: MIT
 
 """A Volatility3 plugin that lists processes that hold BPF objects
 via fd."""
-from typing import Iterable, Callable, Tuple, List, Any
+from typing import Iterable, Tuple, List
 
 from volatility3.framework import interfaces
 from volatility3.framework import renderers
@@ -17,7 +17,8 @@ from volatility3.plugins.linux.bpf_listmaps import MapList
 from volatility3.plugins.linux.bpf_listprogs import ProgList
 from volatility3.framework.plugins.linux.lsof import Lsof
 
-from volatility3.utility.common import BpfProg, BpfMap, BpfLink
+from volatility3.utility.prog import BpfProg, BpfLink
+from volatility3.utility.map import BpfMap
 
 
 class BpfPslist(interfaces.plugins.PluginInterface):
@@ -90,9 +91,7 @@ class BpfPslist(interfaces.plugins.PluginInterface):
         progs = []
         maps = []
         links = []
-        fds_generator = Lsof.list_fds(
-            context, symbol_table
-        )
+        fds_generator = Lsof.list_fds(context, symbol_table)
         for pid, comm, _task, fd_fields in fds_generator:
             if pid == 1:
                 prev_pid = 1
@@ -101,7 +100,7 @@ class BpfPslist(interfaces.plugins.PluginInterface):
             if pid != prev_pid and (progs or maps or links):
                 yield prev_task, progs, maps, links
                 prev_pid = pid
-                prev_task =  _task
+                prev_task = _task
                 progs.clear()
                 maps.clear()
                 links.clear()

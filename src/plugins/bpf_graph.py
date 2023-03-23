@@ -6,7 +6,7 @@ SPDX-License-Identifier: MIT
 
 """A Volatility3 plugin that tries to visualize the state of the BPF
 subsystem as a graph."""
-from typing import Iterable, Callable, Tuple, List, Any
+from typing import Iterable, Tuple, List
 
 from volatility3.framework import interfaces
 from volatility3.framework import renderers
@@ -15,7 +15,7 @@ from volatility3.framework.objects import utility
 
 from volatility3.plugins.linux.bpf_listmaps import MapList
 from volatility3.plugins.linux.bpf_listprogs import ProgList
-from volatility3.plugins.linux.bpf_proc import BpfPslist
+from volatility3.plugins.linux.bpf_listprocs import BpfPslist
 
 import networkx as nx
 

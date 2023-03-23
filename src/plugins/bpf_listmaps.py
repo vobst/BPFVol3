@@ -2,17 +2,18 @@
 SPDX-FileCopyrightText: © 2023 Valentin Obst <legal@bpfvol3.de>
 
 SPDX-License-Identifier: MIT
-"""
 
-"""A Volatility3 plugin that tries to display information
-typically accessed via bpftool map (list|dump) subcommands"""
-from typing import Iterable, Callable, Tuple, List, Any
+A Volatility3 plugin that tries to display information
+typically accessed via bpftool map (list|dump) subcommands
+"""
+from typing import Iterable, Callable, Tuple, List, Any, Optional
 
 from volatility3.framework import interfaces
 from volatility3.framework import renderers
 from volatility3.framework.configuration import requirements
 
-from volatility3.utility.common import *
+from volatility3.utility.map import BpfMap
+from volatility3.utility.datastructures import XArray
 
 
 class MapList(interfaces.plugins.PluginInterface):
@@ -80,8 +81,9 @@ class MapList(interfaces.plugins.PluginInterface):
             self.context, self.config["kernel"], filter_func
         ):
             if dump:
-                with self.open(f"{hex(m.map.vol.get('offset'))}_map_"
-                    f"{m.map.id}") as f:
+                with self.open(
+                    f"{hex(m.map.vol.get('offset'))}_map_" f"{m.map.id}"
+                ) as f:
                     f.write(m.dump().encode("UTF-8"))
 
             yield (0, m.row())
@@ -117,7 +119,9 @@ class MapList(interfaces.plugins.PluginInterface):
 
     @classmethod
     def create_filter(
-        cls, pid_list: List[int] = None, id_list: List[int] = None
+        cls,
+        pid_list: Optional[List[int]] = None,
+        id_list: Optional[List[int]] = None,
     ) -> Callable[[Any], bool]:
         """Constructs a filter function for BPF maps.
         Note:
