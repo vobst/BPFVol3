@@ -12,7 +12,8 @@ from volatility3.framework import interfaces
 from volatility3.framework import renderers
 from volatility3.framework.configuration import requirements
 
-from volatility3.utility.common import *
+from volatility3.utility.prog import BpfProg
+from volatility3.utility.datastructures import XArray
 
 
 class ProgList(interfaces.plugins.PluginInterface):
