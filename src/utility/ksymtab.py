@@ -9,8 +9,8 @@ from collections import namedtuple
 from struct import unpack
 import string
 from hashlib import md5
-from volatility3.framework import interfaces
-from typing import Generator
+from volatility3.framework import interfaces, exceptions
+from typing import Generator, Optional
 
 vollog = logging.getLogger(__name__)
 
@@ -73,7 +73,7 @@ class StringTable:
 
     def lookup_addr(self, addr: int):
         res = None
-        if addr - self.offset > 0:
+        if addr - self.offset >= 0:
             res = (
                 addr,
                 bytes(
@@ -171,26 +171,60 @@ def find_symtab_boundary(
     a symbol table that belongs to 'strtab', returns a pointer to the
     last entry that is inside the symbol table in a given 'direction'.
     """
+    max_invalid_entries = 3
+    invalid_entries = 0
+
     while True:
         entry = SymtabEntry(
             *unpack("<iii", layer.read(offset, SymtabEntry.size))
         )
         # check if the entry references a string within strtab
-        if strtab.lookup_addr(entry.name_offset + offset + 4) == None:
-            # revert the last step
-            offset -= direction * SymtabEntry.size
-            break
-        vollog.debug(
-            "Identified symbol table entry for "
-            f"{strtab.lookup_addr(entry.name_offset + offset + 4)[1]}"
-        )
+        symbol = strtab.lookup_addr(entry.name_offset + offset + 4)
+        if not symbol:
+            invalid_entries += 1
+            try:
+                symbol_name = read_str(layer, entry.name_offset + offset + 4)
+                vollog.info(
+                        f"Entry references string outside of strtab ({direction*invalid_entries}): {symbol_name}"
+                )
+            except exceptions.InvalidAddressException:
+                vollog.info(
+                    f"Invalid entry ({direction*invalid_entries})"
+                )
+                pass
+            if invalid_entries >= max_invalid_entries:
+                # revert the last step
+                offset -= invalid_entries * direction * SymtabEntry.size
+                break
+        else:
+            invalid_entries = 0
+            vollog.debug(
+                f"Identified symbol table entry for {symbol[1]}"
+            )
         offset += direction * SymtabEntry.size
 
     return offset
 
 
+def read_str(
+    layer: interfaces.layers.TranslationLayerInterface, offset: int
+) -> Optional[str]:
+    buf = layer.read(offset, 64)
+    buf += b"\x00"
+    string = bytes(
+        itertools.takewhile(
+            lambda x: isprintable(int.to_bytes(x, length=1, byteorder='little')),
+            buf,
+        )
+    ).decode("ASCII")
+    # differentiate empty string and simply invalid string
+    return string if (len(string) > 0 or buf[0] == 0) else None
+
+
 class Ksymtab:
-    def __init__(self, raw_data: bytes, offset: int):
+    def __init__(
+        self, raw_data: bytes, offset: int, strtab: StringTable
+    ):
         self.table = [
             SymtabEntry(
                 *unpack("<iii", raw_data[i : i + SymtabEntry.size])
@@ -199,6 +233,7 @@ class Ksymtab:
         ]
         self.raw_data = raw_data
         self.offset = offset
+        self.strtab = strtab
 
     def info(self) -> str:
         return (

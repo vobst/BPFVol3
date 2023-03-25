@@ -7,7 +7,7 @@ try cat /proc/kallsyms | rg ' __ksymtab_[^\s]+$' | wc.)
 """
 
 import logging
-from typing import List, Iterable, Optional
+from typing import List, Iterable, Optional, Generator, Tuple
 
 from volatility3.framework import (
     interfaces,
@@ -38,8 +38,8 @@ class KsymtabExtract(interfaces.plugins.PluginInterface):
 
     # heuristic: a symbol that is likely to be only in the kernel
     # symbol table
-    BSYMBOL = b"pipe_lock\x00"
-    SSYMBOL = "pipe_lock"
+    BSYMBOL = b"\x00init_task\x00"
+    SSYMBOL = "init_task"
 
     @classmethod
     def get_requirements(
@@ -67,6 +67,8 @@ class KsymtabExtract(interfaces.plugins.PluginInterface):
             context=context,
             scanner=scanners.BytesScanner(cls.BSYMBOL),
         ):
+            # correct for null byte in cls.BSYMBOL
+            offset += 1
             vollog.info(
                 "Found a possible string table entry for "
                 f"{cls.SSYMBOL} at {hex(offset)}."
@@ -116,7 +118,7 @@ class KsymtabExtract(interfaces.plugins.PluginInterface):
             vollog.info(
                 f"Determined symbol table memory range: {hex(start)}-{hex(end)}"
             )
-            symtab = Ksymtab(layer.read(start, end - start), start)
+            symtab = Ksymtab(layer.read(start, end - start), start, strtab)
             if symtab.is_probably_kernel():
                 yield symtab
             else:
@@ -147,8 +149,9 @@ class KsymtabExtract(interfaces.plugins.PluginInterface):
                 vollog.info(
                     "Found a possible symbol table " f"{symtab.info()}"
                 )
-                strtab.dump_raw("/io/output/" +
-                    "_".join(
+                strtab.dump_raw(
+                    "/io/output/"
+                    + "_".join(
                         [
                             hex(strtab.offset),
                             strtab.hash,
@@ -159,8 +162,9 @@ class KsymtabExtract(interfaces.plugins.PluginInterface):
                         ]
                     )
                 )
-                symtab.dump_raw("/io/output/" +
-                    "_".join(
+                symtab.dump_raw(
+                    "/io/output/"
+                    + "_".join(
                         [
                             hex(strtab.offset),
                             hex(symtab.offset),
@@ -174,7 +178,11 @@ class KsymtabExtract(interfaces.plugins.PluginInterface):
                 )
                 yield symtab
 
-    def _generator(self):
+    def _generator(
+        self,
+    ) -> Generator[
+        Tuple[int, Tuple[format_hints.Hex, int, str, str]], None, None
+    ]:
         # For better performance, make sure that we always scan the
         # physical memory.
         layer = self.context.layers[self.config["primary"]]
@@ -192,10 +200,17 @@ class KsymtabExtract(interfaces.plugins.PluginInterface):
             yield 0, (
                 format_hints.Hex(ksymtab.offset),
                 len(ksymtab.table),
+                ksymtab.strtab.hash,
+                ksymtab.hash,
             )
 
     def run(self):
         return renderers.TreeGrid(
-            [("Offset", format_hints.Hex), ("Nr. Symbols", int)],
+            [
+                ("Offset", format_hints.Hex),
+                ("Symbols", int),
+                ("MD5(strtab)", str),
+                ("MD5(symtab)", str),
+            ],
             self._generator(),
         )

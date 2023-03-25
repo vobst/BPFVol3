@@ -20,8 +20,6 @@ git apply "/patches/v2.4.2.patch"
 
 upd
 
-cd 
-
 echo 'function upd() {
   VOL_BASE="/opt/vol/volatility3/volatility3"
   VOL_PLUG="${VOL_BASE}/plugins/linux"
