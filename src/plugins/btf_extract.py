@@ -2,7 +2,7 @@ import logging
 import tempfile
 from collections import namedtuple
 from struct import unpack
-from typing import List, ByteString, Iterable, Tuple
+from typing import List, Generator, Iterable, Tuple
 from hashlib import md5
 from subprocess import run, DEVNULL, CalledProcessError
 import re
@@ -11,7 +11,6 @@ from volatility3.framework import (
     interfaces,
     renderers,
     layers,
-    exceptions,
 )
 from volatility3.framework.configuration import requirements
 from volatility3.framework.layers import scanners
@@ -33,10 +32,13 @@ BtfHeader = namedtuple(
         "str_len",
     ],
 )
+setattr(BtfHeader, "sizeof", 24)
 
 
 class BtfExtract(interfaces.plugins.PluginInterface):
     """Extracts .BTF section(s) from the dump."""
+
+    MAGIC_BTF = b"\x9f\xeb"
 
     _required_framework_version = (2, 0, 0)
     _version = (0, 0, 0)
@@ -49,7 +51,6 @@ class BtfExtract(interfaces.plugins.PluginInterface):
             requirements.TranslationLayerRequirement(
                 name="primary",
                 description="Memory layer to scan",
-                architectures=["Intel32", "Intel64"],
             ),
         ]
 
@@ -120,27 +121,28 @@ class BtfExtract(interfaces.plugins.PluginInterface):
     def btf_extract(
         cls,
         context: interfaces.context.ContextInterface,
-        layer_name: str,
+        phys_layer: interfaces.layers.TranslationLayerInterface,
         kernel: bool = True,
     ) -> Iterable[Tuple[format_hints.Hex, bytes]]:
         """Extracts .BTF section(s) from the dump.
         kernel: attempt to only extract BTF of vmlinux image (we also
             find BTF of kernel modules or BPF objects)
         """
-        layer = context.layers[layer_name]
-        vollog.info(f"{layer.metadata.architecture=}")
-        for offset in layer.scan(
+        for offset in phys_layer.scan(
             context=context,
-            scanner=scanners.BytesScanner(b"\x9f\xeb"),
+            scanner=scanners.BytesScanner(cls.MAGIC_BTF),
         ):
             hdr = BtfHeader(
-                *unpack("<HBBIIIII", layer.read(offset, 24))
+                *unpack(
+                    "<HBBIIIII",
+                    phys_layer.read(offset, BtfHeader.sizeof),
+                )
             )
             if not cls._probably_valid_btf(hdr):
                 continue
             if kernel and not cls._probably_kernel_btf(hdr):
                 continue
-            btf = layer.read(
+            btf = phys_layer.read(
                 offset, hdr.hdr_len + hdr.str_off + hdr.str_len
             )
             if not cls._likely_valid_btf(btf):
@@ -150,20 +152,31 @@ class BtfExtract(interfaces.plugins.PluginInterface):
             vollog.info(f"Found likely valid BTF: {offset=} {hdr=}")
             yield format_hints.Hex(offset), btf
 
-    def _generator(self):
+    def _generator(
+        self,
+    ) -> Generator[
+        Tuple[int, Tuple[format_hints.Hex, str]], None, None
+    ]:
         layer = self.context.layers[self.config["primary"]]
         if isinstance(layer, layers.intel.Intel):
-            layer = self.context.layers[layer.config["memory_layer"]]
+            virt_layer = layer
+            phys_layer = self.context.layers[
+                layer.config["memory_layer"]
+            ]
+        else:
+            virt_layer = None
+            phys_layer = layer
         for offset, btf_section in self.btf_extract(
-            self.context, layer.name
+            self.context, phys_layer
         ):
             h = md5()
             h.update(btf_section)
+            m = h.digest().hex()
 
             filename = "_".join(
                 [
                     hex(offset),
-                    h.digest().hex(),
+                    m,
                     str(
                         self.context.layers["base_layer"].location
                     ).split("/")[-1]
@@ -173,10 +186,10 @@ class BtfExtract(interfaces.plugins.PluginInterface):
             with self.open(filename) as f:
                 f.write(btf_section)
 
-            yield 0, (offset, h.digest())
+            yield 0, (offset, m)
 
     def run(self):
         return renderers.TreeGrid(
-            [("Offset", format_hints.Hex), ("Hash", bytes)],
+            [("Offset", format_hints.Hex), ("MD5", str)],
             self._generator(),
         )
