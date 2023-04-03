@@ -31,7 +31,7 @@ from capstone import (
     CS_ARCH_X86,
     CS_ARCH_BPF,
 )
-from enum import Enum, Flag
+from enum import Enum
 
 from volatility3.framework.symbols.linux import extensions
 from volatility3.framework import constants
@@ -726,6 +726,7 @@ class LinkList:
         xarray = XArray(link_idr.idr_rt, "bpf_link", context)
 
         for link in xarray.xa_for_each():
-            if filter_func(cast(BpfLink, link)):
+            link = BpfLink(link, context)
+            if filter_func(link):
                 continue
-            yield BpfLink(link, context)
+            yield link
