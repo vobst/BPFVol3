@@ -44,7 +44,6 @@ from volatility3.framework import interfaces
 from volatility3.utility.helpers import (
     make_vol_type,
     get_vol_template,
-    container_of,
 )
 
 from volatility3.plugins.linux.net_devs import Ifconfig
@@ -53,6 +52,7 @@ from volatility3.utility.btf import Btf, BtfException
 from volatility3.utility.map import BpfMap
 from volatility3.utility.datastructures import XArray
 from volatility3.utility.enums import TraceEventFlag
+from volatility3.framework.symbols.linux import LinuxUtilities
 
 vollog = logging.getLogger(__name__)
 
@@ -549,78 +549,39 @@ class BpfLink:
         """
         match self.type:
             case self.types.BPF_LINK_TYPE_ITER:
-                return container_of(
-                    int(self.link.vol.offset),
-                    "bpf_iter_link",
-                    "link",
-                    self.context,
-                )
+                outer_link_name = "bpf_iter_link"
             case self.types.BPF_LINK_TYPE_PERF_EVENT:
-                return container_of(
-                    int(self.link.vol.offset),
-                    "bpf_perf_link",
-                    "link",
-                    self.context,
-                )
+                outer_link_name = "bpf_perf_link"
             case self.types.BPF_LINK_TYPE_KPROBE_MULTI:
-                return container_of(
-                    int(self.link.vol.offset),
-                    "bpf_kprobe_multi_link",
-                    "link",
-                    self.context,
-                )
+                outer_link_name = "bpf_kprobe_multi_link"
             case self.types.BPF_LINK_TYPE_RAW_TRACEPOINT:
-                return container_of(
-                    int(self.link.vol.offset),
-                    "bpf_raw_tp_link",
-                    "link",
-                    self.context,
-                )
+                outer_link_name = "bpf_raw_tp_link"
             case self.types.BPF_LINK_TYPE_TRACING:
-                return container_of(
-                    int(self.link.vol.offset),
-                    "bpf_tracing_link",
-                    "link",
-                    self.context,
-                )
+                outer_link_name = "bpf_tracing_link"
             case self.types.BPF_LINK_TYPE_CGROUP:
-                return container_of(
-                    int(self.link.vol.offset),
-                    "bpf_cgroup_link",
-                    "link",
-                    self.context,
-                )
+                outer_link_name = "bpf_cgroup_link"
             case self.types.BPF_LINK_TYPE_NETNS:
-                return container_of(
-                    int(self.link.vol.offset),
-                    "bpf_netns_link",
-                    "link",
-                    self.context,
-                )
+                outer_link_name = "bpf_netns_link"
             case self.types.BPF_LINK_TYPE_XDP:
-                return container_of(
-                    int(self.link.vol.offset),
-                    "bpf_xdp_link",
-                    "link",
-                    self.context,
-                )
+                outer_link_name = "bpf_xdp_link"
             case self.types.BPF_LINK_TYPE_STRUCT_OPS:
-                return container_of(
-                    int(self.link.vol.offset),
-                    "bpf_tramp_link",
-                    "link",
-                    self.context,
-                )
+                outer_link_name = "bpf_tramp_link"
             case _:
-                vollog.log(
+                vollog.warning(
                     constants.LOGLEVEL_V,
                     "Bug or kernel update.",
                 )
                 return None
+        return LinuxUtilities.container_of(
+            int(self.link.vol.offset),
+            outer_link_name,
+            "link",
+            self.vmlinux,
+        )
 
     @property
     def attach_type(self):
-        """Returns: The attach type of the link"""
+        """Returns: The attach type of the link's program"""
         if self._attach_type:
             return self._attach_type
         if not self.typed_link:
@@ -659,15 +620,31 @@ class BpfLink:
 
     @property
     def attach_to(self) -> str:
+        """This method tries its very best to figure out which event the
+        link refers to.
+        Returns:
+            If possible, it tries to return the section name that you
+            would specify in a BPF ELF file in order to use libbpf's
+            auto-attach feature.
+            Whenever that's not possible, the return value is whatever
+            I deem descriptive and helpful.
+        """
         match self.type:
             case self.types.BPF_LINK_TYPE_ITER:
                 if not self.typed_link:
-                    vollog.log(
-                        constants.LOGLEVEL_V,
+                    vollog.warning(
                         f"Bug or kernel update.",
                     )
                     return ""
                 return f"iter/{pointer_to_string(self.typed_link.tinfo.reg_info.target, 9999)}"
+
+            case self.types.BPF_LINK_TYPE_CGROUP:
+                if not self.typed_link:
+                    vollog.warning(
+                        f"Bug or kernel update.",
+                    )
+                    return ""
+                return f"{cgroup/pointer_to_string(self.typed_link.cgroup.kn.name, 9999)}"
 
             case self.types.BPF_LINK_TYPE_PERF_EVENT:
                 s = ""

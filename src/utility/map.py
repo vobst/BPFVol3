@@ -18,9 +18,10 @@ from enum import Enum
 from volatility3.framework import constants
 from volatility3.framework.objects.utility import array_to_string
 from volatility3.framework import interfaces
+from volatility3.framework.symbols.linux import LinuxUtilities
 
 from volatility3.utility.btf import Btf, BtfException
-from volatility3.utility.helpers import make_vol_type, container_of
+from volatility3.utility.helpers import make_vol_type
 
 vollog = logging.getLogger(__name__)
 
@@ -134,8 +135,8 @@ class BpfMap:
         return dumps(ret)
 
     def _gen_array(self):
-        array = container_of(
-            int(self.map.vol.offset), "bpf_array", "map", self.context
+        array = LinuxUtilities.container_of(
+            int(self.map.vol.offset), "bpf_array", "map", self.vmlinux
         )
         if not array:
             vollog.log(
