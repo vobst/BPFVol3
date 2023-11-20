@@ -1,4 +1,4 @@
-.zsh_history
+.bash_history
 io/*/*
 !io/*/.gitkeep
 __pycache__

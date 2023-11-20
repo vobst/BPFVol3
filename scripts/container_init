@@ -2,45 +2,12 @@
 
 set -xeuo pipefail
 
-function upd() {
-  VOL_BASE="/opt/vol/volatility3/volatility3"
-  VOL_PLUG="${VOL_BASE}/plugins/linux"
-  cp /plug/* ${VOL_PLUG}
-}
+source ~/.bashrc
 
 git apply "/patches/v2.4.2.patch"
 
 upd
 
-echo 'function upd() {
-  VOL_BASE="/opt/vol/volatility3/volatility3"
-  VOL_PLUG="${VOL_BASE}/plugins/linux"
-  cp /plug/* ${VOL_PLUG}
-}' >> ~/.zshrc
+/bin/bash -i
 
-# dirty hack to get the files community plugin running (tested on 2.4.2)
-sym_ext_init="/opt/vol/volatility3/volatility3/framework/symbols/linux/extensions/__init__.py"
-sym_init="/opt/vol/volatility3/volatility3/framework/symbols/linux/__init__.py"
-cp 								\
-  "/opt/vol/community3/Sheffer_Shaked_Docker/volatility3 changes/volatility3/framework/symbols/linux/extensions/__init__.py" \
-  "${sym_ext_init}.other"
-cp 								\
-  "/opt/vol/community3/Sheffer_Shaked_Docker/volatility3 changes/volatility3/framework/symbols/linux/__init__.py" \
-  "${sym_init}.other"
-
-echo 'function swap()
-{
-    local TMPFILE=tmp.$$
-    mv "$1" $TMPFILE && mv "$2" "$1" && mv $TMPFILE "$2"
-}
-
-function xchg_sym_init() {
-  sym_ext_init="/opt/vol/volatility3/volatility3/framework/symbols/linux/extensions/__init__.py"
-  sym_init="/opt/vol/volatility3/volatility3/framework/symbols/linux/__init__.py"
-  swap "${sym_ext_init}.other" "${sym_ext_init}"
-  swap "${sym_init}.other" "${sym_init}"
-}' >> ~/.zshrc
-
-echo 'alias vol="python3 /opt/vol/volatility3/vol.py"' >> ~/.zshrc
-
-exec /bin/zsh
+exit 0

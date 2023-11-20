@@ -9,14 +9,18 @@ VOL_SYM=${VOL_BASE}/symbols/linux
 # 	mount and copy the plugins :(
 VOL_PLUG=${VOL_BASE}/plugins/linux
 VOL_UTIL=${VOL_BASE}/utility
+VOL_CACHE=/root/.cache/volatility3
 
 PLUG="$(pwd)/src/plugins"
 UTIL="$(pwd)/src/utility"
 PATCH="$(pwd)/src/patches"
 SYM="$(pwd)/io/symbols"
-ZSH_HISTORY="$(pwd)/.zsh_history"
+CACHE="$(pwd)/io/cache"
+BASH_HISTORY="$(pwd)/.bash_history"
+BASH_RC="$(pwd)/scripts/bashrc"
 
-test -e "$ZSH_HISTORY" || touch "$ZSH_HISTORY"
+test -e "$BASH_HISTORY" || touch "$BASH_HISTORY"
+test -e "$BASH_RC" || exit 1
 
 function print_usage {
   echo "Available options:
@@ -41,8 +45,10 @@ while (("$#")); do
 		  -v "${UTIL}:${VOL_UTIL}"			\
 		  -v "${PATCH}:/patches"			\
 		  -v "${SYM}:${VOL_SYM}"			\
+		  -v "${CACHE}:${VOL_CACHE}"			\
 		  -v "$(pwd)/scripts/container_init:/bin/container_init" \
-		  -v "${ZSH_HISTORY}:/root/.zsh_history"        \
+		  -v "${BASH_HISTORY}:/root/.bash_history"        \
+		  -v "${BASH_RC}:/root/.bashrc"        \
 		  -w="${VOL_BASE}/.." 				\
 		  bpfvol3:latest				\
 		  /bin/container_init				|| \
@@ -55,9 +61,8 @@ while (("$#")); do
 		CID=$(docker container list -lq)
 		docker exec                                     \
 		  -it                                           \
-		  --env='LC_ALL=en_US.UTF-8'                    \
 		  ${CID}                                        \
-		  /bin/zsh					|| \
+		  /bin/bash					|| \
 		exit 1
 
 		exit 0

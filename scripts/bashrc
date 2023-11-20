@@ -1,0 +1,10 @@
+# note: There seems to be a problem with importing a python module via
+# 	importlib if the backing file is on a docker mount -> we have to
+# 	mount and copy the plugins :(
+function upd() {
+  VOL_BASE="/opt/vol/volatility3/volatility3"
+  VOL_PLUG="${VOL_BASE}/plugins/linux"
+  cp /plug/* ${VOL_PLUG}
+}
+
+alias vol="python3 /opt/vol/volatility3/vol.py"
