@@ -1,0 +1,38 @@
+diff --git a/volatility3/framework/symbols/linux/__init__.py b/volatility3/framework/symbols/linux/__init__.py
+index f9630268..44fa5d4f 100644
+--- a/volatility3/framework/symbols/linux/__init__.py
++++ b/volatility3/framework/symbols/linux/__init__.py
+@@ -46,6 +46,7 @@ class LinuxKernelIntermedSymbols(intermed.IntermediateSymbolTable):
+         self.set_type_class("sock", extensions.sock)
+         self.set_type_class("inet_sock", extensions.inet_sock)
+         self.set_type_class("unix_sock", extensions.unix_sock)
++        self.set_type_class('net_device', extensions.net_device)
+         # Might not exist in older kernels or the current symbols
+         self.optional_set_type_class("netlink_sock", extensions.netlink_sock)
+         self.optional_set_type_class("vsock_sock", extensions.vsock_sock)
+@@ -263,6 +264,8 @@ class LinuxUtilities(interfaces.configuration.VersionableInterface):
+ 
+         for fd_num, filp in enumerate(fds):
+             if filp != 0:
++                # workaround for #922
++                filp = filp.dereference().cast(file_type)
+                 full_path = LinuxUtilities.path_for_file(context, task, filp)
+ 
+                 yield fd_num, filp, full_path
+diff --git a/volatility3/framework/symbols/linux/extensions/__init__.py b/volatility3/framework/symbols/linux/extensions/__init__.py
+index 3fb77213..c2fd5d91 100644
+--- a/volatility3/framework/symbols/linux/extensions/__init__.py
++++ b/volatility3/framework/symbols/linux/extensions/__init__.py
+@@ -1581,3 +1581,12 @@ class kernel_cap_struct(objects.StructType):
+ 
+         cap_value = 1 << CAPABILITIES.index(capability)
+         return cap_value & self.get_capabilities() != 0
++
++class net_device(objects.StructType):
++    def get_ip_ptr(self):
++        # in kernel < 3.0.0, ip_ptr is a void pointer, so we need to cast it to in_device
++        return self.ip_ptr.dereference().cast('in_device')
++
++    def get_ip6_ptr(self):
++        # in kernel < 3.0.0, ip6_ptr is a void pointer, so we need to cast it to inet6_dev
++        return self.ip6_ptr.dereference().cast('inet6_dev')
