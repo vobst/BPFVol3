@@ -10,6 +10,7 @@ VOL_SYM=${VOL_BASE}/symbols/linux
 VOL_PLUG=${VOL_BASE}/plugins/linux
 VOL_UTIL=${VOL_BASE}/utility
 VOL_CACHE=/root/.cache/volatility3
+VOL_VER=2.5.0
 
 PLUG="$(pwd)/src/plugins"
 UTIL="$(pwd)/src/utility"
@@ -47,8 +48,9 @@ while (("$#")); do
 		  -v "${SYM}:${VOL_SYM}"			\
 		  -v "${CACHE}:${VOL_CACHE}"			\
 		  -v "$(pwd)/scripts/container_init:/bin/container_init" \
-		  -v "${BASH_HISTORY}:/root/.bash_history"        \
-		  -v "${BASH_RC}:/root/.bashrc"        \
+		  -v "${BASH_HISTORY}:/root/.bash_history"      \
+		  -v "${BASH_RC}:/root/.bashrc"        		\
+		  -e VOL_VER=${VOL_VER}				\
 		  -w="${VOL_BASE}/.." 				\
 		  bpfvol3:latest				\
 		  /bin/container_init				|| \
@@ -70,6 +72,7 @@ while (("$#")); do
 	-b | --build)
 	  	# Build the vol container
 	        docker build 					\
+		  --build-arg VOL_VER=${VOL_VER}		\
 		  -t bpfvol3:latest 				\
 		  - < ./scripts/dockerfile_vol
 

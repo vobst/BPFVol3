@@ -15,7 +15,7 @@ from volatility3.framework.objects import utility
 
 from volatility3.plugins.linux.bpf_listmaps import MapList
 from volatility3.plugins.linux.bpf_listprogs import ProgList
-from volatility3.framework.plugins.linux.lsof import Lsof
+from volatility3.plugins.linux.lsof import Lsof
 
 from volatility3.utility.prog import BpfProg, BpfLink
 from volatility3.utility.map import BpfMap

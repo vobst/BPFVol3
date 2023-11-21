@@ -4,7 +4,7 @@ set -euo pipefail
 
 source ~/.bashrc
 
-git apply "/patches/v2.4.2.patch"
+git apply "/patches/v${VOL_VER}.patch"
 
 upd
 

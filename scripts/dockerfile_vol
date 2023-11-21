@@ -1,5 +1,6 @@
 FROM ubuntu:latest
 
+ARG VOL_VER
 ENV DEBIAN_FRONTEND noninteractive
 
 RUN set -e 							&& \
@@ -33,7 +34,7 @@ RUN set -exu 							&& \
     git clone							\
         https://github.com/volatilityfoundation/volatility3.git && \
     cd volatility3						&& \
-    git checkout a35afd4f343c10d7f8d1df2cb5eec8364c3dbd5a	&& \
+    git checkout tags/${VOL_VER} -b develop					&& \
     pip3 install -r requirements.txt				&& \
     yes | pip3 uninstall capstone				&& \
     pip3 install 						\
