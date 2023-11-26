@@ -3,7 +3,8 @@
 
 """This module contains classes for parsing Linux data structures"""
 import logging
-from typing import Iterable, Optional
+from collections.abc import Iterable
+from typing import Optional
 
 from volatility3.framework import constants, interfaces
 from volatility3.utility.helpers import get_object
@@ -71,7 +72,7 @@ class XArray:
 
     def xas_offset_valid(self) -> bool:
         """Test if the current slot offset is valid"""
-        if self.xas_offset in range(0, self.XA_CHUNK_SIZE):
+        if self.xas_offset in range(self.XA_CHUNK_SIZE):
             return True
         return False
 
@@ -129,8 +130,8 @@ class XArray:
         self,
     ) -> Optional[interfaces.objects.ObjectInterface]:
         """Returns:
-            The next entry, or None if there are no more entries. Advances the
-            internal iteration state.
+        The next entry, or None if there are no more entries. Advances the
+        internal iteration state.
         """
         entry = None
 

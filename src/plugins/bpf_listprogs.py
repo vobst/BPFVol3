@@ -6,14 +6,13 @@ SPDX-License-Identifier: MIT
 
 """A Volatility3 plugin that tries to display information
 typically accessed via bpftool prog (list|dump) subcommands"""
-from typing import Iterable, Callable, Tuple, List, Any, Optional
+from collections.abc import Callable, Iterable
+from typing import Any, Optional
 
-from volatility3.framework import interfaces
-from volatility3.framework import renderers
+from volatility3.framework import interfaces, renderers
 from volatility3.framework.configuration import requirements
-
-from volatility3.utility.prog import BpfProg
 from volatility3.utility.datastructures import XArray
+from volatility3.utility.prog import BpfProg
 
 
 class ProgList(interfaces.plugins.PluginInterface):
@@ -39,7 +38,7 @@ class ProgList(interfaces.plugins.PluginInterface):
     @classmethod
     def get_requirements(
         cls,
-    ) -> List[interfaces.configuration.RequirementInterface]:
+    ) -> list[interfaces.configuration.RequirementInterface]:
         return [
             requirements.ModuleRequirement(
                 name="kernel",
@@ -79,7 +78,7 @@ class ProgList(interfaces.plugins.PluginInterface):
         filter_func: Callable[[BpfProg], bool] = lambda _: False,
         dump_jited: bool = False,
         dump_xlated: bool = False,
-    ) -> Iterable[Tuple[int, Tuple]]:
+    ) -> Iterable[tuple[int, tuple]]:
         """Generates the BPF program list.
         Args:
             filter_func: A function which takes a BPF program object and
@@ -138,8 +137,8 @@ class ProgList(interfaces.plugins.PluginInterface):
     @classmethod
     def create_filter(
         cls,
-        pid_list: Optional[List[int]] = None,
-        id_list: Optional[List[int]] = None,
+        pid_list: Optional[list[int]] = None,
+        id_list: Optional[list[int]] = None,
     ) -> Callable[[Any], bool]:
         """Constructs a filter function for BPF programs.
         Note:

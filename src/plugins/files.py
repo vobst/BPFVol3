@@ -5,21 +5,21 @@ Created by: Ofek Shaked and Amir Sheffer as part of the Volatilty 2021
 https://github.com/volatilityfoundation/community3/tree/master/Sheffer_Shaked_Docker
 """
 
-from typing import Callable, List, Tuple, Set, Any, Union, Optional
 import logging
+from collections.abc import Callable
+from typing import Any, Optional, Union
 
 from volatility3.framework import (
-    renderers,
-    interfaces,
-    symbols,
     constants,
+    exceptions,
+    interfaces,
+    renderers,
+    symbols,
 )
 from volatility3.framework.configuration import requirements
 from volatility3.framework.renderers import format_hints
 from volatility3.plugins.linux import mount as mount_plugin
 from volatility3.plugins.linux import pslist
-from volatility3.framework import exceptions
-
 
 # inode types
 # see https://elixir.bootlin.com/linux/latest/source/include/uapi/linux/stat.h
@@ -67,7 +67,7 @@ class ListFiles(interfaces.plugins.PluginInterface):
     @classmethod
     def get_requirements(
         cls,
-    ) -> List[interfaces.configuration.RequirementInterface]:
+    ) -> list[interfaces.configuration.RequirementInterface]:
         return [
             requirements.ModuleRequirement(
                 name="kernel",
@@ -114,7 +114,7 @@ class ListFiles(interfaces.plugins.PluginInterface):
 
     @classmethod
     def create_mount_filter(
-        cls, mnt_list: Optional[List[int]] = None
+        cls, mnt_list: Optional[list[int]] = None
     ) -> Callable[[Any], bool]:
         """Constructs a filter function for mount IDs.
         Args:
@@ -153,7 +153,7 @@ class ListFiles(interfaces.plugins.PluginInterface):
 
     @classmethod
     def create_uid_filter(
-        cls, uid_list: Optional[List[int]] = None
+        cls, uid_list: Optional[list[int]] = None
     ) -> Callable[[Any], bool]:
         """Constructs a filter function for owner UIDs.
         Args:
@@ -247,7 +247,7 @@ class ListFiles(interfaces.plugins.PluginInterface):
         dentry: symbols.linux.extensions.dentry,
     ) -> Union[
         None,
-        Tuple[int, int, int, str, int, int, int, int, int, int, str],
+        tuple[int, int, int, str, int, int, int, int, int, int, str],
     ]:
         """Parse a dentry and return the following tuple:
         mount_id, inode_id, inode_address, mode, uid, gid, size, created, modified, accessed, file_path
@@ -328,7 +328,7 @@ class ListFiles(interfaces.plugins.PluginInterface):
         cls,
         context: interfaces.context.ContextInterface,
         vmlinux_module_name: str,
-        dentry_set: Set[symbols.linux.extensions.dentry],
+        dentry_set: set[symbols.linux.extensions.dentry],
         dentry: symbols.linux.extensions.dentry,
     ):
         """Walks a dentry recursively, adding all child dentries to the given list."""
@@ -344,16 +344,12 @@ class ListFiles(interfaces.plugins.PluginInterface):
 
         # check if this is a directory
         try:
-            is_dir = (
-                dentry.d_inode.dereference().i_mode & S_IFMT == S_IFDIR
-            )
+            is_dir = dentry.d_inode.dereference().i_mode & S_IFMT == S_IFDIR
         except exceptions.PagedInvalidAddressException:
             return
         if is_dir:
             # walk subdirs linked list
-            field_name = (
-                "d_child" if dentry.has_member("d_child") else "d_u"
-            )
+            field_name = "d_child" if dentry.has_member("d_child") else "d_u"
             for subdir_dentry in dentry.d_subdirs.to_list(
                 symbol_table + constants.BANG + "dentry", field_name
             ):
@@ -372,11 +368,13 @@ class ListFiles(interfaces.plugins.PluginInterface):
         vmlinux_module_name: str,
         pid_filter: Callable[[Any], bool] = lambda _: False,
         mnt_filter: Callable[[Any], bool] = lambda _: False,
-    ) -> List[Tuple[
-        symbols.linux.extensions.task_struct,
-        symbols.linux.extensions.mount,
-        List[symbols.linux.extensions.dentry],
-    ]]:
+    ) -> list[
+        tuple[
+            symbols.linux.extensions.task_struct,
+            symbols.linux.extensions.mount,
+            list[symbols.linux.extensions.dentry],
+        ]
+    ]:
         """Get a list of all cached dentries in the filesystem that match the given filters."""
         vmlinux = context.modules[vmlinux_module_name]
 
@@ -431,12 +429,8 @@ class ListFiles(interfaces.plugins.PluginInterface):
 
     def _generator(self):
         # create path and UID filters
-        path_filter = self.create_path_filter(
-            self.config.get("path", None)
-        )
-        uid_filter = self.create_uid_filter(
-            self.config.get("uid", None)
-        )
+        path_filter = self.create_path_filter(self.config.get("path", None))
+        uid_filter = self.create_uid_filter(self.config.get("uid", None))
 
         # get requested PIDs
         pids = self.config.get("pid")
@@ -463,9 +457,7 @@ class ListFiles(interfaces.plugins.PluginInterface):
             context=self.context,
             vmlinux_module_name=self.config["kernel"],
             pid_filter=pid_filter,
-            mnt_filter=self.create_mount_filter(
-                self.config.get("mount", None)
-            ),
+            mnt_filter=self.create_mount_filter(self.config.get("mount", None)),
         )
         num_dentries = len(dentries)
 

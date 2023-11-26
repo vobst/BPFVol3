@@ -6,20 +6,17 @@ SPDX-License-Identifier: MIT
 
 """A Volatility3 plugin that tries to visualize the state of the BPF
 subsystem as a graph."""
-from typing import Iterable, Tuple, List
-
-from volatility3.framework import interfaces
-from volatility3.framework import renderers
-from volatility3.framework.configuration import requirements
-from volatility3.framework.objects import utility
-
-from volatility3.plugins.linux.bpf_listmaps import MapList
-from volatility3.plugins.linux.bpf_listprogs import ProgList
-from volatility3.plugins.linux.bpf_listprocs import BpfPslist
+from collections.abc import Iterable
+from enum import Enum
 
 import networkx as nx
 
-from enum import Enum
+from volatility3.framework import interfaces, renderers
+from volatility3.framework.configuration import requirements
+from volatility3.framework.objects import utility
+from volatility3.plugins.linux.bpf_listmaps import MapList
+from volatility3.plugins.linux.bpf_listprocs import BpfPslist
+from volatility3.plugins.linux.bpf_listprogs import ProgList
 
 
 class BpfGraph(interfaces.plugins.PluginInterface):
@@ -72,7 +69,7 @@ class BpfGraph(interfaces.plugins.PluginInterface):
     @classmethod
     def get_requirements(
         cls,
-    ) -> List[interfaces.configuration.RequirementInterface]:
+    ) -> list[interfaces.configuration.RequirementInterface]:
         return [
             requirements.ModuleRequirement(
                 name="kernel",
@@ -100,7 +97,7 @@ class BpfGraph(interfaces.plugins.PluginInterface):
     def _get_color(cls, hashable) -> str:
         return "#" + hex(hash(hashable))[-6:].upper()
 
-    def _generate_graph(self) -> List[str]:
+    def _generate_graph(self) -> list[str]:
         G = nx.Graph()
 
         # add all the maps, color nodes according to the map type
@@ -115,17 +112,13 @@ class BpfGraph(interfaces.plugins.PluginInterface):
                         "fillcolor": self._get_color(m.type),
                     },
                 )
-                for m in MapList.list_maps(
-                    self.context, self.config["kernel"]
-                )
+                for m in MapList.list_maps(self.context, self.config["kernel"])
             ]
         )
 
         # add all the programs and connect them to their maps, color
         # nodes according to attach types
-        for prog in ProgList.list_progs(
-            self.context, self.config["kernel"]
-        ):
+        for prog in ProgList.list_progs(self.context, self.config["kernel"]):
             G.add_nodes_from(
                 [
                     (
@@ -194,9 +187,10 @@ class BpfGraph(interfaces.plugins.PluginInterface):
 
         A = nx.nx_agraph.to_agraph(G)
 
-        filename = str(
-            self.context.layers["base_layer"].location
-        ).split("/")[-1] + ".dot"
+        filename = (
+            str(self.context.layers["base_layer"].location).split("/")[-1]
+            + ".dot"
+        )
         with self.open(f"{filename}") as f:
             A.write(f)
 
@@ -204,7 +198,7 @@ class BpfGraph(interfaces.plugins.PluginInterface):
 
     def _generator(
         self,
-    ) -> Iterable[Tuple[int, Tuple]]:
+    ) -> Iterable[tuple[int, tuple]]:
         for filename in self._generate_graph():
             yield (0, tuple(("OK", filename)))
 

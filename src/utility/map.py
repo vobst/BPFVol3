@@ -7,19 +7,14 @@ This file contains functionality to display general information
 about BPF maps and to dump their contents
 """
 import logging
-from typing import (
-    Iterable,
-    Tuple,
-    Any,
-)
-from json import dumps
+from collections.abc import Iterable
 from enum import Enum
+from json import dumps
+from typing import Any
 
-from volatility3.framework import constants
+from volatility3.framework import constants, interfaces
 from volatility3.framework.objects.utility import array_to_string
-from volatility3.framework import interfaces
 from volatility3.framework.symbols.linux import LinuxUtilities
-
 from volatility3.utility.btf import Btf, BtfException
 from volatility3.utility.helpers import make_vol_type
 
@@ -41,9 +36,7 @@ class BpfMap:
         self.vmlinux = self.context.modules["kernel"]
         self.types = Enum(
             "BpfMapType",
-            names=self.vmlinux.get_enumeration(
-                "bpf_map_type"
-            ).choices.items(),
+            names=self.vmlinux.get_enumeration("bpf_map_type").choices.items(),
         )
 
         try:
@@ -98,7 +91,7 @@ class BpfMap:
             int(self.map.max_entries),
         )
 
-    def items(self) -> Iterable[Tuple[Any, Any]]:
+    def items(self) -> Iterable[tuple[Any, Any]]:
         """Iterate over the map.
         Returns:
             Iterator holding (key, value) pairs stored in the map.
@@ -141,11 +134,11 @@ class BpfMap:
         if not array:
             vollog.log(
                 constants.LOGLEVEL_V,
-                f"Bug",
+                "Bug",
             )
             return []
 
-        for i in range(0, int(self.map.max_entries)):
+        for i in range(int(self.map.max_entries)):
             data_ptr = int(array.value.vol.offset) + (
                 i & int(array.index_mask)
             ) * int(array.elem_size)

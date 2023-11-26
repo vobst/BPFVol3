@@ -6,19 +6,16 @@ SPDX-License-Identifier: MIT
 
 """A Volatility3 plugin that lists processes that hold BPF objects
 via fd."""
-from typing import Iterable, Tuple, List
+from collections.abc import Iterable
 
-from volatility3.framework import interfaces
-from volatility3.framework import renderers
+from volatility3.framework import interfaces, renderers
 from volatility3.framework.configuration import requirements
 from volatility3.framework.objects import utility
-
 from volatility3.plugins.linux.bpf_listmaps import MapList
 from volatility3.plugins.linux.bpf_listprogs import ProgList
 from volatility3.plugins.linux.lsof import Lsof
-
-from volatility3.utility.prog import BpfProg, BpfLink
 from volatility3.utility.map import BpfMap
+from volatility3.utility.prog import BpfLink, BpfProg
 
 
 class BpfPslist(interfaces.plugins.PluginInterface):
@@ -39,7 +36,7 @@ class BpfPslist(interfaces.plugins.PluginInterface):
     @classmethod
     def get_requirements(
         cls,
-    ) -> List[interfaces.configuration.RequirementInterface]:
+    ) -> list[interfaces.configuration.RequirementInterface]:
         return [
             requirements.ModuleRequirement(
                 name="kernel",
@@ -120,7 +117,7 @@ class BpfPslist(interfaces.plugins.PluginInterface):
 
     def _generator(
         self,
-    ) -> Iterable[Tuple[int, Tuple]]:
+    ) -> Iterable[tuple[int, tuple]]:
         symbol_table = self.config["kernel"]
 
         for task, progs, maps, links in self.list_bpf_procs(

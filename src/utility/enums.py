@@ -1,4 +1,4 @@
-from enum import Flag, Enum
+from enum import Enum, Flag
 
 
 class BtfKind(Enum):
@@ -44,12 +44,8 @@ class TraceEventType:
 class TraceEventFlag(Flag):
     """Anonymous enum defined in /include/linux/trace_events.h"""
 
-    TRACE_EVENT_FL_FILTERED = (
-        1 << TraceEventType.TRACE_EVENT_FL_FILTERED_BIT
-    )
-    TRACE_EVENT_FL_CAP_ANY = (
-        1 << TraceEventType.TRACE_EVENT_FL_CAP_ANY_BIT
-    )
+    TRACE_EVENT_FL_FILTERED = 1 << TraceEventType.TRACE_EVENT_FL_FILTERED_BIT
+    TRACE_EVENT_FL_CAP_ANY = 1 << TraceEventType.TRACE_EVENT_FL_CAP_ANY_BIT
     TRACE_EVENT_FL_NO_SET_FILTER = (
         1 << TraceEventType.TRACE_EVENT_FL_NO_SET_FILTER_BIT
     )
@@ -59,18 +55,8 @@ class TraceEventFlag(Flag):
     TRACE_EVENT_FL_TRACEPOINT = (
         1 << TraceEventType.TRACE_EVENT_FL_TRACEPOINT_BIT
     )
-    TRACE_EVENT_FL_DYNAMIC = (
-        1 << TraceEventType.TRACE_EVENT_FL_DYNAMIC_BIT
-    )
-    TRACE_EVENT_FL_KPROBE = (
-        1 << TraceEventType.TRACE_EVENT_FL_KPROBE_BIT
-    )
-    TRACE_EVENT_FL_UPROBE = (
-        1 << TraceEventType.TRACE_EVENT_FL_UPROBE_BIT
-    )
-    TRACE_EVENT_FL_EPROBE = (
-        1 << TraceEventType.TRACE_EVENT_FL_EPROBE_BIT
-    )
-    TRACE_EVENT_FL_CUSTOM = (
-        1 << TraceEventType.TRACE_EVENT_FL_CUSTOM_BIT
-    )
+    TRACE_EVENT_FL_DYNAMIC = 1 << TraceEventType.TRACE_EVENT_FL_DYNAMIC_BIT
+    TRACE_EVENT_FL_KPROBE = 1 << TraceEventType.TRACE_EVENT_FL_KPROBE_BIT
+    TRACE_EVENT_FL_UPROBE = 1 << TraceEventType.TRACE_EVENT_FL_UPROBE_BIT
+    TRACE_EVENT_FL_EPROBE = 1 << TraceEventType.TRACE_EVENT_FL_EPROBE_BIT
+    TRACE_EVENT_FL_CUSTOM = 1 << TraceEventType.TRACE_EVENT_FL_CUSTOM_BIT

@@ -7,7 +7,6 @@ This file contains small helper functions that are used in more than
 one other part of the code.
 """
 import logging
-from typing import Optional
 
 from volatility3.framework import constants, interfaces
 

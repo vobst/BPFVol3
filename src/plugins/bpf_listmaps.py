@@ -6,14 +6,13 @@ SPDX-License-Identifier: MIT
 A Volatility3 plugin that tries to display information
 typically accessed via bpftool map (list|dump) subcommands
 """
-from typing import Iterable, Callable, Tuple, List, Any, Optional
+from collections.abc import Callable, Iterable
+from typing import Any, Optional
 
-from volatility3.framework import interfaces
-from volatility3.framework import renderers
+from volatility3.framework import interfaces, renderers
 from volatility3.framework.configuration import requirements
-
-from volatility3.utility.map import BpfMap
 from volatility3.utility.datastructures import XArray
+from volatility3.utility.map import BpfMap
 
 
 class MapList(interfaces.plugins.PluginInterface):
@@ -36,7 +35,7 @@ class MapList(interfaces.plugins.PluginInterface):
     @classmethod
     def get_requirements(
         cls,
-    ) -> List[interfaces.configuration.RequirementInterface]:
+    ) -> list[interfaces.configuration.RequirementInterface]:
         return [
             requirements.ModuleRequirement(
                 name="kernel",
@@ -68,7 +67,7 @@ class MapList(interfaces.plugins.PluginInterface):
         self,
         filter_func: Callable[[BpfMap], bool] = lambda _: False,
         dump: bool = False,
-    ) -> Iterable[Tuple[int, Tuple]]:
+    ) -> Iterable[tuple[int, tuple]]:
         """Generates the BPF map list.
         Args:
             filter_func: A function which takes a BPF map object and
@@ -82,7 +81,7 @@ class MapList(interfaces.plugins.PluginInterface):
         ):
             if dump:
                 with self.open(
-                    f"{hex(m.map.vol.get('offset'))}_map_" f"{m.map.id}"
+                    f"{hex(m.map.vol.get('offset'))}_map_{m.map.id}"
                 ) as f:
                     f.write(m.dump().encode("UTF-8"))
 
@@ -120,8 +119,8 @@ class MapList(interfaces.plugins.PluginInterface):
     @classmethod
     def create_filter(
         cls,
-        pid_list: Optional[List[int]] = None,
-        id_list: Optional[List[int]] = None,
+        pid_list: Optional[list[int]] = None,
+        id_list: Optional[list[int]] = None,
     ) -> Callable[[Any], bool]:
         """Constructs a filter function for BPF maps.
         Note:

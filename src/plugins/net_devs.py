@@ -8,22 +8,20 @@ Modified by: Valentin Obst
 
 """Volatility3 plugin that displays information about network devices."""
 
-from typing import Iterable, List, Tuple, Optional
 import logging
-import ipaddress
+from collections.abc import Iterable
 
 from volatility3.framework import (
-    exceptions,
-    renderers,
     constants,
+    exceptions,
     interfaces,
+    renderers,
     symbols,
 )
-from volatility3.framework.symbols.linux import extensions
 from volatility3.framework.configuration import requirements
-from volatility3.framework.renderers import conversion
 from volatility3.framework.objects import utility
-
+from volatility3.framework.renderers import conversion
+from volatility3.framework.symbols.linux import extensions
 
 vollog = logging.getLogger(__name__)
 
@@ -38,7 +36,7 @@ class Ifconfig(interfaces.plugins.PluginInterface):
     @classmethod
     def get_requirements(
         cls,
-    ) -> List[interfaces.configuration.RequirementInterface]:
+    ) -> list[interfaces.configuration.RequirementInterface]:
         return [
             requirements.ModuleRequirement(
                 name="kernel",
@@ -52,7 +50,7 @@ class Ifconfig(interfaces.plugins.PluginInterface):
         cls,
         context: interfaces.context.ContextInterface,
         vmlinux_module_name: str,
-    ) -> Iterable[Tuple[int, extensions.net_device]]:
+    ) -> Iterable[tuple[int, extensions.net_device]]:
         """Walk the list of net namespaces and extract all net devices from them (kernel >= 2.6.24)."""
         vmlinux = context.modules[vmlinux_module_name]
         symbol_table = vmlinux.symbol_table_name
@@ -83,7 +81,7 @@ class Ifconfig(interfaces.plugins.PluginInterface):
         cls,
         context: interfaces.context.ContextInterface,
         vmlinux_module_name: str,
-    ) -> Iterable[Tuple[int, symbols.linux.extensions.net_device]]:
+    ) -> Iterable[tuple[int, symbols.linux.extensions.net_device]]:
         """Walk the list of net devices headed by dev_base (kernel < 2.6.22)."""
         vmlinux = context.modules[vmlinux_module_name]
 
@@ -135,7 +133,7 @@ class Ifconfig(interfaces.plugins.PluginInterface):
         context: interfaces.context.ContextInterface,
         vmlinux_module_name: str,
         miniq: interfaces.objects.ObjectInterface,
-    ) -> List[int]:
+    ) -> list[int]:
         vmlinux = context.modules[vmlinux_module_name]
         symbol_table = vmlinux.symbol_table_name
         ret = []
@@ -178,9 +176,7 @@ class Ifconfig(interfaces.plugins.PluginInterface):
         context: interfaces.context.ContextInterface,
         vmlinux_module_name: str,
         net_dev: symbols.linux.extensions.net_device,
-    ) -> Tuple[
-        str, str, str, int, str, int, bool, List[int], List[int]
-    ]:
+    ) -> tuple[str, str, str, int, str, int, bool, list[int], list[int]]:
         """Extract various information from a network device:
         name,
         mac_addr,
@@ -205,20 +201,14 @@ class Ifconfig(interfaces.plugins.PluginInterface):
             "list",
             sentinel=True,
         ):
-            mac_addr = ":".join(
-                ["{0:02x}".format(x) for x in netdev_hw_addr.addr][:6]
-            )
+            mac_addr = ":".join([f"{x:02x}" for x in netdev_hw_addr.addr][:6])
             # use only first address
             break
 
         # get IPv4 info
         try:
-            first_in_ifaddr = (
-                net_dev.get_ip_ptr().ifa_list.dereference()
-            )
-            ipv4_addr = conversion.convert_ipv4(
-                first_in_ifaddr.ifa_address
-            )
+            first_in_ifaddr = net_dev.get_ip_ptr().ifa_list.dereference()
+            ipv4_addr = conversion.convert_ipv4(first_in_ifaddr.ifa_address)
             ipv4_prefixlen = first_in_ifaddr.ifa_prefixlen
         except exceptions.PagedInvalidAddressException:
             ipv4_addr = ""
@@ -240,13 +230,11 @@ class Ifconfig(interfaces.plugins.PluginInterface):
             # in kernel < 3.0.0, inet6_dev.addr_list is a pointer to the first inet6_ifaddr (as opposed to a list head)
             except AttributeError:
                 # each inet6_ifaddr points to the next through 'ifpub'
-                inet6_ifaddrs = (
-                    symbols.linux.LinuxUtilities.walk_internal_list(
-                        vmlinux,
-                        "inet6_ifaddr",
-                        "ifpub",
-                        inet6_dev.addr_list.dereference(),
-                    )
+                inet6_ifaddrs = symbols.linux.LinuxUtilities.walk_internal_list(
+                    vmlinux,
+                    "inet6_ifaddr",
+                    "ifpub",
+                    inet6_dev.addr_list.dereference(),
                 )
 
             for inet6_ifaddr in inet6_ifaddrs:

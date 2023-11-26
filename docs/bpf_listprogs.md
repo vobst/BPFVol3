@@ -1,9 +1,12 @@
 # List BPF programs
+
 ## User Documentation
+
 The purpose of this plugin is to display a list of BPF programs that
 are currently loaded into the kernel.
 
 For each program it displays the following pieces of information:
+
 - OFFSET: kernel virtual address where the `bpf_proc` structure
 is located
 - ID: unique ID of the program
@@ -21,6 +24,7 @@ that might be used by the program
 ,when possible)
 
 The understood command line parameters are:
+
 - `--id`: list of space-separated IDs to filter the output
 - `--dump-xlated`: write the bytecode representation of the program(s)
 to a text file
@@ -28,10 +32,12 @@ to a text file
 program(s) to a text file
 
 ## Technical Documentation
+
 On load, each BPF object is assigned an ID, which is unique per object
 type and system restart. Internallly, the BPF subsystem uses the
 [IDR kernel API](https://www.kernel.org/doc/html/latest/core-api/idr.html)
 to allocate those IDs. For that purpose, it declares global variables
+
 ```C
 // /kernel/bpf/syscall.c
 static DEFINE_IDR(prog_idr);
@@ -41,6 +47,7 @@ static DEFINE_SPINLOCK(map_idr_lock);
 static DEFINE_IDR(link_idr);
 static DEFINE_SPINLOCK(link_idr_lock);
 ```
+
 To realize the ID allocation, the IDR subsystem uses the kernel's
 radix tree data structure, which is really just an
 [XArray](https://www.kernel.org/doc/html/latest/core-api/xarray.html).

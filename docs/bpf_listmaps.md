@@ -1,9 +1,12 @@
 # List BPF maps
+
 ## User Documentation
+
 The purpose of this plugin is to display a list of BPF maps that
 are currently loaded into the kernel.
 
 For each map it displays the following pieces of information:
+
 - OFFSET: kernel virtual address where the `bpf_map` structure
 is located
 - ID: unique ID of the map
@@ -15,11 +18,13 @@ is located
 - MAX ENTRIES: maximal number of entries that the map can hold
 
 The understood command line parameters are:
+
 - `--id`: list of space-separated IDs to filter the output
 - `--dump`: writes the contents of the map(s) to a text file, uses BTF
 for pretty printing, defaults to hexdump if no BTF is available
 
 ## Technical Documentation
+
 For a general description of the process used to generate the list
 we refer the reader to the documentation of the `bpf_listprogs` plugin.
 

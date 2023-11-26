@@ -7,22 +7,16 @@ Volatility3 plugin that shows the current state of the Kernel Runtime
 Security Instrumentation (KRSI) framework.
 """
 import logging
-from typing import Iterable, Tuple, List, Optional
+from collections.abc import Iterable
 from itertools import takewhile
-from capstone import (
-    Cs,
-    CsError,
-    CS_MODE_64,
-    CS_ARCH_X86,
-)
+from typing import Optional
 
-from volatility3.framework import interfaces, constants, renderers
-from volatility3.framework.exceptions import (
-    PagedInvalidAddressException,
-)
+from capstone import CS_ARCH_X86, CS_MODE_64, Cs, CsError
+
+from volatility3.framework import constants, interfaces, renderers
 from volatility3.framework.configuration import requirements
-
-from volatility3.utility.prog import BpfProg, LinkList, BpfLink
+from volatility3.framework.exceptions import PagedInvalidAddressException
+from volatility3.utility.prog import BpfLink, BpfProg, LinkList
 
 vollog = logging.getLogger(__name__)
 
@@ -44,7 +38,7 @@ class BpfLsm(interfaces.plugins.PluginInterface):
     @classmethod
     def get_requirements(
         cls,
-    ) -> List[interfaces.configuration.RequirementInterface]:
+    ) -> list[interfaces.configuration.RequirementInterface]:
         return [
             requirements.ModuleRequirement(
                 name="kernel",
@@ -78,11 +72,7 @@ class BpfLsm(interfaces.plugins.PluginInterface):
         # in the bpf_lsm_ stub will give us the address of the BPF
         # trampoline.
         tramp_address = next(
-            (
-                insn.op_str
-                for insn in mdisasm
-                if insn.mnemonic == "call"
-            ),
+            (insn.op_str for insn in mdisasm if insn.mnemonic == "call"),
             None,
         )
         if tramp_address:
@@ -93,26 +83,20 @@ class BpfLsm(interfaces.plugins.PluginInterface):
         cls,
         context: interfaces.context.ContextInterface,
         symbol_table: str,
-    ) -> Iterable[
-        Tuple[interfaces.symbols.SymbolInterface, List[BpfProg]]
-    ]:
+    ) -> Iterable[tuple[interfaces.symbols.SymbolInterface, list[BpfProg]]]:
         """Generates all the LSM hooks that have at least one BPF
         program attached"""
-        vmlinux: interfaces.ModuleInterface = context.modules[
-            symbol_table
-        ]
+        vmlinux: interfaces.ModuleInterface = context.modules[symbol_table]
         # Only tracing links can attach to the LSM hooks (true?)
-        links: List[BpfLink] = list(
-            (
-                link
-                for link in LinkList.list_links(
-                    context,
-                    symbol_table,
-                    lambda link: link.typed_link.vol.get(
-                        "type_name"
-                    ).split(constants.BANG)[1]
-                    != "bpf_tracing_link",
-                )
+        links: list[BpfLink] = list(
+            link
+            for link in LinkList.list_links(
+                context,
+                symbol_table,
+                lambda link: link.typed_link.vol.get("type_name").split(
+                    constants.BANG
+                )[1]
+                != "bpf_tracing_link",
             )
         )
         for hook in (
@@ -141,11 +125,10 @@ class BpfLsm(interfaces.plugins.PluginInterface):
                 # There is no BPF program on this hook.
                 continue
             # Find the link(s) that attach program(s) to this hook.
-            prog_list: List[BpfProg] = [
+            prog_list: list[BpfProg] = [
                 link.prog
                 for link in links
-                if link.typed_link.trampoline.cur_image.image
-                == tramp_address
+                if link.typed_link.trampoline.cur_image.image == tramp_address
             ]
             if not prog_list:
                 # This could indicate hidden BPF objects, a currupt
@@ -159,19 +142,17 @@ class BpfLsm(interfaces.plugins.PluginInterface):
 
     def _generator(
         self,
-    ) -> Iterable[Tuple[int, Tuple]]:
+    ) -> Iterable[tuple[int, tuple]]:
         """Generates the rows of the output."""
         symbol_table = self.config["kernel"]
 
-        for hook, prog_list in self.list_bpf_lsm(
-            self.context, symbol_table
-        ):
+        for hook, prog_list in self.list_bpf_lsm(self.context, symbol_table):
             yield (
                 0,
                 (
                     hook.name,
                     len(prog_list),
-                    ",".join((str(prog.aux.id) for prog in prog_list)),
+                    ",".join(str(prog.aux.id) for prog in prog_list),
                 ),
             )
 

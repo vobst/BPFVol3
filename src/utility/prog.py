@@ -10,55 +10,41 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import (
-    Iterable,
-    Optional,
-    Tuple,
-    List,
-    Set,
-    Any,
-    Dict,
-    Callable,
-    cast,
-)
 from collections import namedtuple
+from collections.abc import Callable, Iterable
+from enum import Enum
 from itertools import chain
+from typing import Any, Optional
+
 from capstone import (
-    Cs,
-    CsError,
+    CS_ARCH_BPF,
+    CS_ARCH_X86,
     CS_MODE_64,
     CS_MODE_BPF_EXTENDED,
-    CS_ARCH_X86,
-    CS_ARCH_BPF,
+    Cs,
+    CsError,
 )
-from enum import Enum
 
-from volatility3.framework.symbols.linux import extensions
-from volatility3.framework import constants
+from volatility3.framework import constants, interfaces
 from volatility3.framework.objects.utility import (
     array_of_pointers,
     array_to_string,
     pointer_to_string,
 )
-from volatility3.framework import interfaces
-from volatility3.utility.helpers import (
-    make_vol_type,
-    get_vol_template,
-)
-
+from volatility3.framework.symbols.linux import LinuxUtilities, extensions
 from volatility3.plugins.linux.net_devs import Ifconfig
-
 from volatility3.utility.btf import Btf, BtfException
-from volatility3.utility.map import BpfMap
 from volatility3.utility.datastructures import XArray
 from volatility3.utility.enums import TraceEventFlag
-from volatility3.framework.symbols.linux import LinuxUtilities
+from volatility3.utility.helpers import get_vol_template, make_vol_type
+from volatility3.utility.map import BpfMap
 
 vollog = logging.getLogger(__name__)
 
 
 # represents a symbol that is referenced within a BPF program
 BpfProgSym = namedtuple("BpfProgSym", ["name", "kind"])
+
 
 # the different kinds of symbols that might appear in a BPF program
 class BpfProgSymKind(Enum):
@@ -83,9 +69,7 @@ class BpfProg:
         self.vmlinux = self.context.modules["kernel"]
         self.types = Enum(
             "BpfProgType",
-            names=self.vmlinux.get_enumeration(
-                "bpf_prog_type"
-            ).choices.items(),
+            names=self.vmlinux.get_enumeration("bpf_prog_type").choices.items(),
         )
 
         self.aux = self.prog.aux
@@ -135,9 +119,7 @@ class BpfProg:
         if self.aux.has_valid_member("func_info") and self.btf:
             func_info = self.aux.func_info.dereference().cast(
                 "array",
-                count=(
-                    1 if self.aux.func_cnt == 0 else self.aux.func_cnt
-                ),
+                count=(1 if self.aux.func_cnt == 0 else self.aux.func_cnt),
                 subtype=get_vol_template("bpf_func_info", self.context),
             )
             self._name = self.btf.get_string(
@@ -149,7 +131,7 @@ class BpfProg:
         return self._name
 
     @property
-    def symbol_table(self) -> Dict[int, BpfProgSym]:
+    def symbol_table(self) -> dict[int, BpfProgSym]:
         if self._symbol_table:
             return self._symbol_table
         ret = dict()
@@ -178,15 +160,11 @@ class BpfProg:
             ret.update(
                 {
                     int(m.map.vol.get("offset"))
-                    + 0xFFFF000000000000: BpfProgSym(
-                        m.name, BpfProgSymKind.MAP
-                    )
+                    + 0xFFFF000000000000: BpfProgSym(m.name, BpfProgSymKind.MAP)
                 }
             )
         # all calls to kernel functions
-        for i in chain(
-            self.mdisasm, *(func.mdisasm for func in self.funcs)
-        ):
+        for i in chain(self.mdisasm, *(func.mdisasm for func in self.funcs)):
             if i.insn_name() == "call":
                 # check if we already have a symbol for the address
                 if ret.get(int(i.op_str, 16), None):
@@ -197,13 +175,7 @@ class BpfProg:
                             int(i.op_str, 16): BpfProgSym(
                                 self.vmlinux.get_symbols_by_absolute_location(
                                     int(i.op_str, 16)
-                                )[
-                                    0
-                                ].split(
-                                    constants.BANG
-                                )[
-                                    1
-                                ],
+                                )[0].split(constants.BANG)[1],
                                 BpfProgSymKind.HELPER,
                             )
                         }
@@ -220,7 +192,7 @@ class BpfProg:
         return self._symbol_table
 
     @property
-    def funcs(self) -> List[BpfProg]:
+    def funcs(self) -> list[BpfProg]:
         """A 'main' BPF program may call functions that are also
         implemented im BPF, i.e. BPF2BPF calls. This returns the list
         of all such 'function programs'"""
@@ -247,9 +219,7 @@ class BpfProg:
         return self._funcs
 
     def __eq__(self, other: BpfProg) -> bool:
-        return self.prog.vol.get("offset") == other.prog.vol.get(
-            "offset"
-        )
+        return self.prog.vol.get("offset") == other.prog.vol.get("offset")
 
     def row(self):
         """Returns:
@@ -274,11 +244,10 @@ class BpfProg:
             return self._attach_to
         elif self.link:
             self._attach_to = self.link.attach_to
-        elif (
-            self.type == self.types.BPF_PROG_TYPE_SCHED_CLS
-            and self.net_dev
-        ):
-            self._attach_to = f"tc/{self.net_dev.dir}/{array_to_string(self.net_dev.name)}"
+        elif self.type == self.types.BPF_PROG_TYPE_SCHED_CLS and self.net_dev:
+            self._attach_to = (
+                f"tc/{self.net_dev.dir}/{array_to_string(self.net_dev.name)}"
+            )
         else:
             self._attach_to = ""
 
@@ -289,20 +258,16 @@ class BpfProg:
         if self._net_dev:
             return self._net_dev
         for _, net_dev in Ifconfig.get_net_devs(self.context, "kernel"):
-            if self.prog.vol.get(
-                "offset"
-            ) in Ifconfig.get_miniq_bpf_cls(
+            if self.prog.vol.get("offset") in Ifconfig.get_miniq_bpf_cls(
                 self.context, "kernel", net_dev.miniq_egress
             ):
                 self._net_dev = net_dev
-                setattr(self._net_dev, "dir", "egress")
-            if self.prog.vol.get(
-                "offset"
-            ) in Ifconfig.get_miniq_bpf_cls(
+                self._net_dev.dir = "egress"
+            if self.prog.vol.get("offset") in Ifconfig.get_miniq_bpf_cls(
                 self.context, "kernel", net_dev.miniq_ingress
             ):
                 self._net_dev = net_dev
-                setattr(self._net_dev, "dir", "ingress")
+                self._net_dev.dir = "ingress"
 
         return self._net_dev
 
@@ -322,9 +287,7 @@ class BpfProg:
     def dump_mcode(self) -> str:
         re_imm = re.compile(r"^.*?(0xffff[0-9a-f]+?)$")
         ret = []
-        for i in chain(
-            self.mdisasm, *(func.mdisasm for func in self.funcs)
-        ):
+        for i in chain(self.mdisasm, *(func.mdisasm for func in self.funcs)):
             # annotate above the line, e.g. the beginning of functions
             symbol = self.symbol_table.get(i.address, None)
             if symbol:
@@ -339,11 +302,7 @@ class BpfProg:
                     end = (
                         "\t# "
                         + f"{sym_off[0].name}"
-                        + (
-                            f" + {hex(sym_off[1])}"
-                            if sym_off[1]
-                            else ""
-                        )
+                        + (f" + {hex(sym_off[1])}" if sym_off[1] else "")
                     )
 
             ret.append(
@@ -357,9 +316,7 @@ class BpfProg:
 
         return "\n".join(ret)
 
-    def get_symbol(
-        self, address: int
-    ) -> Optional[Tuple[BpfProgSym, int]]:
+    def get_symbol(self, address: int) -> Optional[tuple[BpfProgSym, int]]:
         """returns:
         The closest preceeding symbol in the program (within somewhat
         arbitrary bounds, to balance false positives and false
@@ -435,7 +392,7 @@ class BpfProg:
         return self._bcode
 
     @property
-    def maps(self) -> List[BpfMap]:
+    def maps(self) -> list[BpfMap]:
         """Returns:
         Maps used by the program."""
         if self._maps:
@@ -471,7 +428,7 @@ class BpfProg:
         return self._bdisasm
 
     @property
-    def mdisasm(self) -> List[Any]:
+    def mdisasm(self) -> list[Any]:
         if self._mdisasm:
             return self._mdisasm
         else:
@@ -490,7 +447,7 @@ class BpfProg:
         return self._mdisasm
 
     @property
-    def helpers(self) -> Set[str]:
+    def helpers(self) -> set[str]:
         """Returns:
         Set of all BPF helper, kfunc and BPF2BPF calls that happen in
         the program."""
@@ -522,9 +479,7 @@ class BpfLink:
         self.vmlinux = self.context.modules["kernel"]
         self.types = Enum(
             "BpfLinkType",
-            names=self.vmlinux.get_enumeration(
-                "bpf_link_type"
-            ).choices.items(),
+            names=self.vmlinux.get_enumeration("bpf_link_type").choices.items(),
         )
         self.attach_types = Enum(
             "BpfAttachType",
@@ -586,17 +541,13 @@ class BpfLink:
             return self._attach_type
         if not self.typed_link:
             return None
-        match self.typed_link.vol.get("type_name").split(
-            constants.BANG
-        )[1]:
+        match self.typed_link.vol.get("type_name").split(constants.BANG)[1]:
             case "bpf_iter_link":
                 self._attach_type = self.attach_types.BPF_TRACE_ITER
             case "bpf_perf_link":
                 self._attach_type = self.attach_types.BPF_PERF_EVENT
             case "bpf_kprobe_multi_link":
-                self._attach_type = (
-                    self.attach_types.BPF_TRACE_KPROBE_MULTI
-                )
+                self._attach_type = self.attach_types.BPF_TRACE_KPROBE_MULTI
             case "bpf_raw_tp_link":
                 self._attach_type = self.attach_types.BPF_TRACE_RAW_TP
             case "bpf_tracing_link":
@@ -604,9 +555,7 @@ class BpfLink:
                     int(self.typed_link.attach_type)
                 )
             case "bpf_cgroup_link" | "bpf_netns_link":
-                self._attach_type = self.attach_types(
-                    int(self.typed_link.type)
-                )
+                self._attach_type = self.attach_types(int(self.typed_link.type))
             case "bpf_xdp_link":
                 self._attach_type = self.attach_types.BPF_XDP
             case "bpf_tramp_link":
@@ -633,7 +582,7 @@ class BpfLink:
             case self.types.BPF_LINK_TYPE_ITER:
                 if not self.typed_link:
                     vollog.warning(
-                        f"Bug or kernel update.",
+                        "Bug or kernel update.",
                     )
                     return ""
                 return f"iter/{pointer_to_string(self.typed_link.tinfo.reg_info.target, 9999)}"
@@ -641,7 +590,7 @@ class BpfLink:
             case self.types.BPF_LINK_TYPE_CGROUP:
                 if not self.typed_link:
                     vollog.warning(
-                        f"Bug or kernel update.",
+                        "Bug or kernel update.",
                     )
                     return ""
                 return f"{cgroup/pointer_to_string(self.typed_link.cgroup.kn.name, 9999)}"
@@ -657,7 +606,7 @@ class BpfLink:
                         if not self.typed_link:
                             vollog.log(
                                 constants.LOGLEVEL_V,
-                                f"Bug or kernel update.",
+                                "Bug or kernel update.",
                             )
                             return s
                         trace_event_call = (
@@ -666,17 +615,14 @@ class BpfLink:
                             .tp_event
                         )
                         flags = TraceEventFlag(trace_event_call.flags)
-                        if (
-                            flags
-                            & TraceEventFlag.TRACE_EVENT_FL_TRACEPOINT
-                        ):
+                        if flags & TraceEventFlag.TRACE_EVENT_FL_TRACEPOINT:
                             s += f"tp/{pointer_to_string(trace_event_call.tp.name, 9999)}"
                         else:
                             s += f"tp/{pointer_to_string(trace_event_call.name, 9999)}"
                     case _:
                         vollog.log(
                             constants.LOGLEVEL_V,
-                            f"Bug or kernel update.",
+                            "Bug or kernel update.",
                         )
                 return s
             case _:
@@ -713,9 +659,7 @@ class LinkList:
             return []
         # IDR for links was introduced in a3b80e1, v5.8-rc1
         if vmlinux.has_symbol("link_idr"):
-            link_idr = vmlinux.object_from_symbol(
-                symbol_name="link_idr"
-            )
+            link_idr = vmlinux.object_from_symbol(symbol_name="link_idr")
         else:
             vollog.log(
                 constants.LOGLEVEL_V,
