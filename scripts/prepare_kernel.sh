@@ -3,10 +3,10 @@
 set -xeuo pipefail
 
 if [[ $# < 2 ]]; then
-  echo "Renames a kernel and its System.map to a unique value." >&2
-  echo "Optionally: Generate ISF file." >&2
-  echo "Usage: $0 <kernel> <system_map> [--symbols]" >&2
-  exit 1
+    echo "Renames a kernel and its System.map to a unique value." >&2
+    echo "Optionally: Generate ISF file." >&2
+    echo "Usage: $0 <kernel> <system_map> [--symbols]" >&2
+    exit 1
 fi
 
 kernel="$(pwd)/$1"
@@ -22,17 +22,17 @@ symbols="/io/symbols/${kernelhash}.isf.json"
 d2j="/opt/vol/dwarf2json/dwarf2json"
 
 if [[ $# = 3 ]]; then
-  echo "Generating ISF file, this may take a while"
+    echo "Generating ISF file, this may take a while"
 fi
 
 docker run \
-  --name "ISF_${kernelhash}" \
-  --rm \
-  -i \
-  -v "$(pwd)/io:/io" \
-  -w="/io" \
-  bpfvol3:latest \
-  /bin/bash -c "$d2j linux --elf $kernel --system-map $system_map | tee $symbols"
+    --name "ISF_${kernelhash}" \
+    --rm \
+    -i \
+    -v "$(pwd)/io:/io" \
+    -w="/io" \
+    bpfvol3:latest \
+    /bin/bash -c "$d2j linux --elf $kernel --system-map $system_map | tee $symbols"
 
 symbols="./io/symbols/${kernelhash}.isf.json"
 ./scripts/fix_symbols.sh ${symbols}
