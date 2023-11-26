@@ -34,72 +34,72 @@ function print_usage {
 }
 
 while (("$#")); do
-	case "$1" in
-	-r | --run)
-		# Run the vol container
-		docker run 					\
-		  --name BPFVol3_analysis			\
-		  --rm 						\
-		  -it 						\
-		  -v "$(pwd)/io:/io" 				\
-		  -v "${PLUG}:/plug"				\
-		  -v "${UTIL}:${VOL_UTIL}"			\
-		  -v "${PATCH}:/patches"			\
-		  -v "${SYM}:${VOL_SYM}"			\
-		  -v "${CACHE}:${VOL_CACHE}"			\
-		  -v "$(pwd)/scripts/container_init:/bin/container_init" \
-		  -v "${BASH_HISTORY}:/root/.bash_history"      \
-		  -v "${BASH_RC}:/root/.bashrc"        		\
-		  -e VOL_VER=${VOL_VER}				\
-		  -w="${VOL_BASE}/.." 				\
-		  bpfvol3:latest				\
-		  /bin/container_init				|| \
-		exit 1
+  case "$1" in
+    -r | --run)
+      # Run the vol container
+      docker run \
+        --name BPFVol3_analysis \
+        --rm \
+        -it \
+        -v "$(pwd)/io:/io" \
+        -v "${PLUG}:/plug" \
+        -v "${UTIL}:${VOL_UTIL}" \
+        -v "${PATCH}:/patches" \
+        -v "${SYM}:${VOL_SYM}" \
+        -v "${CACHE}:${VOL_CACHE}" \
+        -v "$(pwd)/scripts/container_init:/bin/container_init" \
+        -v "${BASH_HISTORY}:/root/.bash_history" \
+        -v "${BASH_RC}:/root/.bashrc" \
+        -e VOL_VER=${VOL_VER} \
+        -w="${VOL_BASE}/.." \
+        bpfvol3:latest \
+        /bin/container_init ||
+        exit 1
 
-		exit 0
-		;;
-	-s | --shell)
-		# Run a shell in the vol container
-		CID=$(docker container list -lq)
-		docker exec                                     \
-		  -it                                           \
-		  ${CID}                                        \
-		  /bin/bash					|| \
-		exit 1
+      exit 0
+      ;;
+    -s | --shell)
+      # Run a shell in the vol container
+      CID=$(docker container list -lq)
+      docker exec \
+        -it \
+        ${CID} \
+        /bin/bash ||
+        exit 1
 
-		exit 0
-		;;
-	-b | --build)
-	  	# Build the vol container
-	        docker build 					\
-		  --build-arg VOL_VER=${VOL_VER}		\
-		  -t bpfvol3:latest 				\
-		  - < ./scripts/dockerfile_vol
+      exit 0
+      ;;
+    -b | --build)
+      # Build the vol container
+      docker build \
+        --build-arg VOL_VER=${VOL_VER} \
+        -t bpfvol3:latest \
+        - <./scripts/dockerfile_vol
 
-		exit 0
-		;;
-	-p | --pull)
-		# Pull the latest container image from dockerhub
-		echo "Not implemented :("
-		exit 42
-		;;
-	-d | --debug)
-		# Enable debug output
-		set -euxo pipefail
-		shift 1
-		;;
-	-h | --help)
-		# Print usage info
-		print_usage
-		exit 0
-		;;
-	-*)
-		echo "Error: Unknown option: $1" >&2
-		print_usage >&2
-		exit 1
-		;;
-	*) # No more options
-		break
-		;;
-	esac
+      exit 0
+      ;;
+    -p | --pull)
+      # Pull the latest container image from dockerhub
+      echo "Not implemented :("
+      exit 42
+      ;;
+    -d | --debug)
+      # Enable debug output
+      set -euxo pipefail
+      shift 1
+      ;;
+    -h | --help)
+      # Print usage info
+      print_usage
+      exit 0
+      ;;
+    -*)
+      echo "Error: Unknown option: $1" >&2
+      print_usage >&2
+      exit 1
+      ;;
+    *) # No more options
+      break
+      ;;
+  esac
 done

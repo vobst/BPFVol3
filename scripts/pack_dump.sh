@@ -2,8 +2,7 @@
 
 set -exuo pipefail
 
-if [[ $# != 1 ]]
-then
+if [[ $# != 1 ]]; then
   echo "usage: $0 <relative path to file>"
   exit 1
 fi
@@ -11,8 +10,7 @@ fi
 file="$(pwd)/$1"
 filename=$(basename -- "$file")
 extension="${filename##*.}"
-if [[ $extension = $filename ]]
-then
+if [[ $extension = $filename ]]; then
   extension=".bin"
 fi
 filehash=$(md5sum $file | rg '([0-9a-f]+?) ' -r '$1' -o)
