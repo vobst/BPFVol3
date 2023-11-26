@@ -1,25 +1,18 @@
-"""
-SPDX-FileCopyrightText: © 2023 Valentin Obst <legal@bpfvol3.de>
+# SPDX-FileCopyrightText: © 2023 Valentin Obst <legal@bpfvol3.de>
+# SPDX-License-Identifier: MIT
 
-SPDX-License-Identifier: MIT
-
-This file contains classes for parsing Linux data structures
-"""
+"""This module contains classes for parsing Linux data structures"""
 import logging
-from typing import (
-    Iterable,
-    Optional,
-)
+from typing import Iterable, Optional
 
-from volatility3.framework import constants
-from volatility3.framework import interfaces
+from volatility3.framework import constants, interfaces
 from volatility3.utility.helpers import get_object
 
 vollog = logging.getLogger(__name__)
 
 
 class XArray:
-    """Oversimplified and incomplete iterator for XArrays of pointers"""
+    """Simple iterator for XArrays of pointers"""
 
     XA_CHUNK_SHIFT = 6  # correct if CONFIG_BASE_SMALL = 0
     XA_CHUNK_SIZE = 1 << XA_CHUNK_SHIFT
@@ -41,7 +34,9 @@ class XArray:
         self.xarray = xarray
         self.subtype = subtype
         self.context = context
+        # Node we are currently visiting
         self.xas_node = self.xa_to_node(int(self.xarray.xa_head))
+        # Offset into the node's slots that we are currently working at
         self.xas_offset = 0
 
     def _construct_subtype_obj(
@@ -50,47 +45,51 @@ class XArray:
         return get_object(self.subtype, entry, self.context)
 
     def xa_is_node(self, entry: int) -> bool:
+        """Tests if an entry is a pointer to another node"""
         return self.xa_is_internal(entry) and entry > 0x1000
 
     def xa_is_internal(self, entry: int) -> bool:
+        """
+        Test if an entry belongs to the xarray implementation, i.e., is not a
+        value entry belonging to the user.
+        """
         return (entry & 0b11) == 0b10
 
-    def xa_to_node(
-        self, entry: int
-    ) -> interfaces.objects.ObjectInterface:
+    def xa_to_node(self, entry: int) -> interfaces.objects.ObjectInterface:
+        """Converts an entry pointing to another node to the actual pointer"""
         return get_object("xa_node", entry - 0b10, self.context)
 
     def xa_is_pointer(self, entry: int) -> bool:
+        """Test if an entry is a value entry belonging to the user"""
         return (entry & 0b11) == 0b00 and entry != 0
 
     def xas_valid(self) -> bool:
+        """Test if the current iteration state is valid"""
         if self.xas_offset_valid() and self.xas_node_valid():
             return True
         return False
 
     def xas_offset_valid(self) -> bool:
+        """Test if the current slot offset is valid"""
         if self.xas_offset in range(0, self.XA_CHUNK_SIZE):
             return True
         return False
 
     def xas_node_valid(self) -> bool:
-        if not isinstance(
-            self.xas_node, interfaces.objects.ObjectInterface
-        ):
+        """Check if the current node is valid"""
+        if not isinstance(self.xas_node, interfaces.objects.ObjectInterface):
             return False
-        if (
-            self.xas_node.vol.type_name.split(constants.BANG)[1]
-            != "xa_node"
-        ):
+        if self.xas_node.vol.type_name.split(constants.BANG)[1] != "xa_node":
             return False
         if int(self.xas_node.vol.offset) == 0:
             return False
         return True
 
     def xas_get_entry_from_offset(self) -> Optional[int]:
-        """Returns:
-        Node or pointer entry for current offset and node,
-        else None. Never returns 0.
+        """
+        Returns:
+            Node or pointer entry for current offset and node,
+            else None. Never returns 0.
         """
         if not self.xas_valid():
             return None
@@ -116,6 +115,8 @@ class XArray:
             while entry:
                 yield entry
                 entry = self.xas_descend()
+        # xarrays with a single entry do not have any nodes, the pointer to the
+        # first node is actually the entry
         elif self.xa_is_pointer(entry):
             yield self._construct_subtype_obj(entry)
         else:
@@ -127,6 +128,10 @@ class XArray:
     def xas_descend(
         self,
     ) -> Optional[interfaces.objects.ObjectInterface]:
+        """Returns:
+            The next entry, or None if there are no more entries. Advances the
+            internal iteration state.
+        """
         entry = None
 
         while not entry:
@@ -135,10 +140,8 @@ class XArray:
                 self.xas_offset += 1
                 while not self.xas_offset_valid():
                     self.xas_offset = self.xas_node.offset + 1
-                    self.xas_node = (
-                        self.xas_node.parent.dereference().cast(
-                            "xa_node"
-                        )
+                    self.xas_node = self.xas_node.parent.dereference().cast(
+                        "xa_node"
                     )
                 if not self.xas_node_valid():
                     entry = None
