@@ -9,6 +9,7 @@ ignore = [
     "RUF003",
     "UP007",
     "E501",
+    "PLR0911",
 ]
 fixable = ["F", "E", "W", "C90", "N", "UP", "B", "A", "PL", "C4", "EXE", "ISC", "PIE", "T20", "PT", "RET", "SIM", "TCH",
     "PTH", "PLR", "PLW", "ARG", "ERA", "RUF", "Q"]
