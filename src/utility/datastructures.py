@@ -11,6 +11,8 @@ from volatility3.utility.helpers import get_object
 
 vollog = logging.getLogger(__name__)
 
+XA_SPECIAL_ENTRY_THRESHOLD: int = 0x1000
+
 
 class XArray:
     """Simple iterator for XArrays of pointers"""
@@ -47,14 +49,14 @@ class XArray:
 
     def xa_is_node(self, entry: int) -> bool:
         """Tests if an entry is a pointer to another node"""
-        return self.xa_is_internal(entry) and entry > 0x1000
+        return self.xa_is_internal(entry) and entry > XA_SPECIAL_ENTRY_THRESHOLD
 
     def xa_is_internal(self, entry: int) -> bool:
         """
         Test if an entry belongs to the xarray implementation, i.e., is not a
         value entry belonging to the user.
         """
-        return (entry & 0b11) == 0b10
+        return (entry & 0b11) == 0b10  # noqa: PLR2004
 
     def xa_to_node(self, entry: int) -> interfaces.objects.ObjectInterface:
         """Converts an entry pointing to another node to the actual pointer"""
@@ -138,8 +140,8 @@ class XArray:
         while not entry:
             entry = self.xas_get_entry_from_offset()
             if not entry:
-                self.xas_offset += 1
-                while not self.xas_offset_valid():
+                self.xas_offset += 1  # shift
+                while not self.xas_offset_valid():  # ascend
                     self.xas_offset = self.xas_node.offset + 1
                     self.xas_node = self.xas_node.parent.dereference().cast(
                         "xa_node"
@@ -148,12 +150,12 @@ class XArray:
                     entry = None
                     break
                 continue
-            elif self.xa_is_node(entry):
+            if self.xa_is_node(entry):  # descend
                 self.xas_node = self.xa_to_node(entry)
                 self.xas_offset = 0
                 entry = None
                 continue
-            elif self.xa_is_pointer(entry):
+            if self.xa_is_pointer(entry):  # got entry, yield it
                 self.xas_offset += 1
                 entry = self._construct_subtype_obj(entry)
             else:
