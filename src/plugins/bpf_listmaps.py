@@ -1,52 +1,44 @@
+# SPDX-FileCopyrightText: © 2023 Valentin Obst <legal@bpfvol3.de>
+# SPDX-License-Identifier: MIT
+
 """
-SPDX-FileCopyrightText: © 2023 Valentin Obst <legal@bpfvol3.de>
-
-SPDX-License-Identifier: MIT
-
 A Volatility3 plugin that tries to display information
 typically accessed via bpftool map (list|dump) subcommands
 """
 from collections.abc import Callable, Iterable
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, ClassVar, Optional
 
-from volatility3.framework import interfaces, renderers
 from volatility3.framework.configuration import requirements
+from volatility3.framework.interfaces.configuration import RequirementInterface
+from volatility3.framework.interfaces.context import (
+    ContextInterface,
+    ModuleInterface,
+)
+from volatility3.framework.interfaces.plugins import PluginInterface
+from volatility3.framework.renderers import TreeGrid
 from volatility3.utility.datastructures import XArray
 from volatility3.utility.map import BpfMap
 
+if TYPE_CHECKING:
+    from volatility3.framework.interfaces.objects import ObjectInterface
 
-class MapList(interfaces.plugins.PluginInterface):
+
+class MapList(PluginInterface):
     """Lists the BPF maps present in a particular Linux memory image."""
 
-    _required_framework_version = (2, 0, 0)
+    _required_framework_version: ClassVar = (2, 0, 0)
 
-    _version = (0, 0, 0)
-
-    columns = [
-        ("OFFSET (V)", str),
-        ("ID", int),
-        ("NAME", str),
-        ("TYPE", str),
-        ("KEY SIZE", int),
-        ("VALUE SIZE", int),
-        ("MAX ENTRIES", int),
-    ]
+    _version: ClassVar = (0, 0, 0)
 
     @classmethod
     def get_requirements(
         cls,
-    ) -> list[interfaces.configuration.RequirementInterface]:
+    ) -> list[RequirementInterface]:
         return [
             requirements.ModuleRequirement(
                 name="kernel",
                 description="Linux kernel",
                 architectures=["Intel32", "Intel64"],
-            ),
-            requirements.ListRequirement(
-                name="pid",
-                description="Filter on specific process IDs",
-                element_type=int,
-                optional=True,
             ),
             requirements.ListRequirement(
                 name="id",
@@ -56,8 +48,13 @@ class MapList(interfaces.plugins.PluginInterface):
             ),
             requirements.BooleanRequirement(
                 name="dump",
-                description="If True, full map contents are written to"
-                "a file.",
+                description="If True, map contents are written to a file.",
+                optional=True,
+                default=False,
+            ),
+            requirements.BooleanRequirement(
+                name="raw",
+                description="If True, raw map contents are written to a file.",
                 optional=True,
                 default=False,
             ),
@@ -68,11 +65,11 @@ class MapList(interfaces.plugins.PluginInterface):
         filter_func: Callable[[BpfMap], bool] = lambda _: False,
         dump: bool = False,
     ) -> Iterable[tuple[int, tuple]]:
-        """Generates the BPF map list.
+        """Generates the BPF map list
         Args:
             filter_func: A function which takes a BPF map object and
-                returns True if the map should be ignored/filtered.
-            dump: If True, full map contents are written to a file.
+                returns True if the map should be ignored/filtered
+            dump: If True, full map contents are written to a file
         Yields:
             Each row
         """
@@ -81,7 +78,7 @@ class MapList(interfaces.plugins.PluginInterface):
         ):
             if dump:
                 with self.open(
-                    f"{hex(m.map.vol.get('offset'))}_map_{m.map.id}"
+                    f"map_{hex(m.map.vol.get('offset'))}_{m.map.id}"
                 ) as f:
                     f.write(m.dump().encode("UTF-8"))
 
@@ -90,11 +87,11 @@ class MapList(interfaces.plugins.PluginInterface):
     @classmethod
     def list_maps(
         cls,
-        context: interfaces.context.ContextInterface,
+        context: ContextInterface,
         vmlinux_module_name: str = "kernel",
         filter_func: Callable[[BpfMap], bool] = lambda _: False,
     ) -> Iterable[BpfMap]:
-        """Lists all the BPF maps in the primary layer.
+        """Lists all the BPF maps in the primary layer
         Args:
             context: The context to retrieve required elements
                 (layers, symbol tables) from
@@ -105,13 +102,15 @@ class MapList(interfaces.plugins.PluginInterface):
         Yields:
             BPF map objects
         """
-        vmlinux = context.modules[vmlinux_module_name]
-        map_idr = vmlinux.object_from_symbol(symbol_name="map_idr")
+        vmlinux: ModuleInterface = context.modules[vmlinux_module_name]
+        map_idr: ObjectInterface = vmlinux.object_from_symbol(
+            symbol_name="map_idr"
+        )
 
-        xarray = XArray(map_idr.idr_rt, "bpf_map", context)
+        xarray: XArray = XArray(map_idr.idr_rt, "bpf_map", context)
 
         for m in xarray.xa_for_each():
-            m = BpfMap(m, context)
+            m: BpfMap = BpfMap(m, context)  # noqa: PLW2901
             if filter_func(m):
                 continue
             yield m
@@ -119,39 +118,44 @@ class MapList(interfaces.plugins.PluginInterface):
     @classmethod
     def create_filter(
         cls,
-        pid_list: Optional[list[int]] = None,
         id_list: Optional[list[int]] = None,
-    ) -> Callable[[Any], bool]:
-        """Constructs a filter function for BPF maps.
-        Note:
-            PID filtering is not implemented.
+    ) -> Callable[[BpfMap], bool]:
+        """Constructs a filter function for BPF maps
         Args:
-            pid_list: List of process IDs that are acceptable
-                (or None if all are acceptable)
-            pid_list: List of BPF map IDs that are acceptable
+            id_list: List of BPF map IDs that are acceptable
                 (or None if all are acceptable)
         Returns:
             Function which, when provided a BPF map object, returns True
             iff the map is to be filtered out of the list
         """
         id_list = id_list or []
-        id_filter_list = [x for x in id_list if x is not None]
+        id_filter_list: list[int] = [x for x in id_list if x is not None]
         if id_filter_list:
 
-            def filter_func(x):
+            def filter_func(x: BpfMap) -> bool:
                 return int(x.map.id) not in id_filter_list
 
             return filter_func
-        else:
-            return lambda _: False
 
-    def run(self):
-        filter_func = self.create_filter(
-            self.config.get("pid", None), self.config.get("id", None)
+        return lambda _: False
+
+    def run(self) -> TreeGrid:
+        columns: list[tuple[str, Any]] = [
+            ("OFFSET (V)", str),
+            ("ID", int),
+            ("TYPE", str),
+            ("NAME", str),
+            ("KEY SIZE", int),
+            ("VALUE SIZE", int),
+            ("MAX ENTRIES", int),
+        ]
+
+        filter_func: Callable[[BpfMap], bool] = self.create_filter(
+            self.config.get("id", None)
         )
-        dump = self.config.get("dump")
+        dump: bool = bool(self.config.get("dump"))
 
-        return renderers.TreeGrid(
-            self.columns,
+        return TreeGrid(
+            columns,
             self._generator(filter_func, dump),
         )

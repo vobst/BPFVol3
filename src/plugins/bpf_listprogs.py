@@ -152,9 +152,7 @@ class ProgList(PluginInterface):
         cls,
         id_list: Optional[list[int]] = None,
     ) -> Callable[[BpfProg], bool]:
-        """Constructs a filter function for BPF programs.
-        Note:
-            PID filtering is not implemented.
+        """Constructs a filter function for BPF programs
         Args:
             id_list: List of BPF program IDs that are acceptable
                 (or None if all are acceptable)
