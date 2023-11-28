@@ -1,0 +1,139 @@
+# SPDX-FileCopyrightText: © 2023 Valentin Obst <legal@bpfvol3.de>
+# SPDX-License-Identifier: MIT
+
+"""
+This module contains functionality to display general information about BPF
+links
+"""
+from __future__ import annotations
+
+import logging
+from enum import Enum
+from typing import TYPE_CHECKING
+
+from volatility3.framework import constants
+from volatility3.framework.objects.utility import pointer_to_string
+from volatility3.framework.symbols.linux import LinuxUtilities
+from volatility3.utility.helpers import make_vol_type
+
+if TYPE_CHECKING:
+    from volatility3.framework.interfaces.context import (
+        ContextInterface,
+        ModuleInterface,
+    )
+    from volatility3.framework.interfaces.objects import ObjectInterface
+
+vollog: logging.Logger = logging.getLogger(__name__)
+
+MAX_STR_LEN: int = 256
+
+
+class BpfLink:
+    def __init__(
+        self,
+        link: ObjectInterface,
+        context: ContextInterface,
+    ) -> None:
+        # our caller might give us a pointer to any type, lets unify it
+        self.link: ObjectInterface = (
+            link
+            if link.vol.type_name == make_vol_type("bpf_link", context)
+            else link.dereference().cast("bpf_link")
+        )
+        self.context: ContextInterface = context
+        self.vmlinux: ModuleInterface = self.context.modules["kernel"]
+
+        self.attach_types = Enum(
+            "BpfAttachType",
+            names=self.vmlinux.get_enumeration(
+                "bpf_attach_type"
+            ).choices.items(),
+        )
+        self.types = Enum(
+            "BpfLinkType",
+            names=self.vmlinux.get_enumeration("bpf_link_type").choices.items(),
+        )
+        self.type = self.types(self.link.type)
+
+        self.prog: ObjectInterface = self.link.prog.dereference().cast(
+            "bpf_prog"
+        )
+
+    def row(self):
+        return (
+            hex(self.link.vol.offset),
+            int(self.link.id),
+            str(self.type).removeprefix("BpfLinkType.BPF_LINK_TYPE_"),
+            int(self.prog.aux.id),
+            ";".join(self.get_fill_link_info()),
+        )
+
+    def get_fill_link_info(self) -> list[str]:
+        ret: list[str] = []
+
+        fill_link_info_fn: int = int(self.link.ops.fill_link_info)
+        if fill_link_info_fn == 0:
+            return ret
+
+        fill_link_info_fn_name: str = (
+            self.vmlinux.get_symbols_by_absolute_location(fill_link_info_fn)[
+                0
+            ].split(constants.BANG)[1]
+        )
+        match fill_link_info_fn_name:
+            case "bpf_nf_link_fill_link_info":
+                pass
+            case "bpf_cgroup_link_fill_link_info":
+                pass
+            case "bpf_raw_tp_link_fill_link_info":
+                pass
+            case "bpf_tracing_link_fill_link_info":
+                ret = self._fill_tracing()
+            case "bpf_struct_ops_map_link_fill_link_info":
+                pass
+            case "bpf_iter_link_fill_link_info":
+                ret = self._fill_iter()
+            case "bpf_netns_link_fill_info":
+                pass
+            case "bpf_xdp_link_fill_link_info":
+                pass
+            case _:
+                vollog.log(
+                    constants.LOGLEVEL_V,
+                    f"Unknown fill_link_info: {fill_link_info_fn_name}",
+                )
+
+        return ret
+
+    def _fill_tracing(self) -> list[str]:
+        tr_link: ObjectInterface | None = self._downcast("bpf_tracing_link")
+        if tr_link is None:
+            return []
+
+        attach_type: str = str(
+            self.attach_types(tr_link.attach_type)
+        ).removeprefix("BpfAttachType.BPF_")
+
+        key: int = int(tr_link.trampoline.key)
+        obj_id, btf_id = key >> 32, key & 0x7FFFFFFF
+
+        return [f"{attach_type=}", f"{obj_id=}", f"{btf_id=}"]
+
+    def _fill_iter(self) -> list[str]:
+        it_link: ObjectInterface | None = self._downcast("bpf_iter_link")
+        if it_link is None:
+            return []
+
+        target_name: str = str(
+            pointer_to_string(it_link.tinfo.reg_info.target, MAX_STR_LEN)
+        )
+
+        return [f"{target_name=}"]
+
+    def _downcast(self, outer_link_name: str) -> ObjectInterface | None:
+        return LinuxUtilities.container_of(
+            int(self.link.vol.offset),
+            outer_link_name,
+            "link",
+            self.vmlinux,
+        )
