@@ -73,6 +73,10 @@ class BpfLink:
 
         fill_link_info_fn: int = int(self.link.ops.fill_link_info)
         if fill_link_info_fn == 0:
+            vollog.log(
+                constants.LOGLEVEL_V,
+                "fill_link_info is NULL",
+            )
             return ret
 
         fill_link_info_fn_name: str = (
@@ -84,9 +88,9 @@ class BpfLink:
             case "bpf_nf_link_fill_link_info":
                 pass
             case "bpf_cgroup_link_fill_link_info":
-                pass
+                ret = self._fill_cg()
             case "bpf_raw_tp_link_fill_link_info":
-                pass
+                ret = self._fill_rawtp()
             case "bpf_tracing_link_fill_link_info":
                 ret = self._fill_tracing()
             case "bpf_struct_ops_map_link_fill_link_info":
@@ -96,7 +100,7 @@ class BpfLink:
             case "bpf_netns_link_fill_info":
                 pass
             case "bpf_xdp_link_fill_link_info":
-                pass
+                ret = self._fill_xdp()
             case _:
                 vollog.log(
                     constants.LOGLEVEL_V,
@@ -104,6 +108,38 @@ class BpfLink:
                 )
 
         return ret
+
+    def _fill_cg(self) -> list[str]:
+        cg_link: ObjectInterface | None = self._downcast("bpf_cgroup_link")
+        if cg_link is None:
+            return []
+
+        attach_type: str = str(self.attach_types(cg_link.type)).removeprefix(
+            "BpfAttachType.BPF_"
+        )
+        cgroup_id: int = int(cg_link.cgroup.kn.id)
+
+        return [f"{attach_type=}", f"{cgroup_id=}"]
+
+    def _fill_rawtp(self) -> list[str]:
+        rawtp_link: ObjectInterface | None = self._downcast("bpf_raw_tp_link")
+        if rawtp_link is None:
+            return []
+
+        tp_name: str = str(
+            pointer_to_string(rawtp_link.btp.tp.name, MAX_STR_LEN)
+        )
+
+        return [f"{tp_name=}"]
+
+    def _fill_xdp(self) -> list[str]:
+        xdp_link: ObjectInterface | None = self._downcast("bpf_xdp_link")
+        if xdp_link is None:
+            return []
+
+        ifindex: int = int(xdp_link.dev.ifindex)
+
+        return [f"{ifindex=}"]
 
     def _fill_tracing(self) -> list[str]:
         tr_link: ObjectInterface | None = self._downcast("bpf_tracing_link")
