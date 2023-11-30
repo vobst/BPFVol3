@@ -413,7 +413,7 @@ class BpfProg:
             int(self.aux.id),
             str(self.type).removeprefix("BpfProgType.BPF_PROG_TYPE_"),
             self.name,
-            "".join([f"{x:x}" for x in self.prog.tag]),
+            "".join([format(x, "02x") for x in self.prog.tag]),
             int(self.aux.load_time),
             ",".join([str(m.map.id) for m in self.maps]),
             self.btf.btf.id if self.btf else -1,

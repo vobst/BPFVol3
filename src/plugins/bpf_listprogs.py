@@ -107,7 +107,7 @@ class ProgList(PluginInterface):
                         f"prog_{hex(prog.prog.vol.get('offset'))}_"
                         f"{prog.aux.id}_bcode",
                     ) as f:
-                        f.write(prog.bcode())
+                        f.write(prog.bcode)
                 else:
                     with self.open(
                         f"prog_{hex(prog.prog.vol.get('offset'))}_"

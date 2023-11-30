@@ -86,7 +86,9 @@ class BpfLink:
         )
         match fill_link_info_fn_name:
             case "bpf_nf_link_fill_link_info":
-                pass
+                # added in v6.4-rc1, 84601d6
+                # https://lore.kernel.org/all/20230421170300.24115-1-fw@strlen.de/
+                pass  # TODO: gen. test image once I have VM w/ newer kernel
             case "bpf_cgroup_link_fill_link_info":
                 ret = self._fill_cg()
             case "bpf_raw_tp_link_fill_link_info":
@@ -94,11 +96,12 @@ class BpfLink:
             case "bpf_tracing_link_fill_link_info":
                 ret = self._fill_tracing()
             case "bpf_struct_ops_map_link_fill_link_info":
+                # TODO: convince libbpf to generate this link type
                 pass
             case "bpf_iter_link_fill_link_info":
                 ret = self._fill_iter()
             case "bpf_netns_link_fill_info":
-                pass
+                ret = self._fill_netns()
             case "bpf_xdp_link_fill_link_info":
                 ret = self._fill_xdp()
             case _:
@@ -108,6 +111,18 @@ class BpfLink:
                 )
 
         return ret
+
+    def _fill_netns(self) -> list[str]:
+        net_link: ObjectInterface | None = self._downcast("bpf_netns_link")
+        if net_link is None:
+            return []
+
+        inum: int = int(net_link.net.ns.inum)
+        attach_type: str = str(self.attach_types(net_link.type)).removeprefix(
+            "BpfAttachType.BPF_"
+        )
+
+        return [f"{inum=}", f"{attach_type=}"]
 
     def _fill_cg(self) -> list[str]:
         cg_link: ObjectInterface | None = self._downcast("bpf_cgroup_link")
