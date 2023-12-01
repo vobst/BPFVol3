@@ -218,12 +218,22 @@ class BpfProg:
         if self._bcode:
             return self._bcode
 
+        vollog.log(
+            constants.LOGLEVEL_V,
+            f"Number of bytecode instructions: {self.prog.len}",
+        )
+
         self._bcode = bytes(
             self.context.layers.read(
                 self.vmlinux.layer_name,
                 self.prog.insnsi.vol.get("offset"),
-                self.prog.len * 8,
+                self.prog.len * 8,  # sizeof(struct bpf_insn)
             )
+        )
+
+        vollog.log(
+            constants.LOGLEVEL_V,
+            f"Read bytecode length: {len(self._bcode)}",
         )
 
         return self._bcode
@@ -247,6 +257,8 @@ class BpfProg:
 
     @property
     def bdisasm(self) -> Iterable[Any]:
+        # note: there is a known issue in Capstone that BPF is not disassembled
+        # correctly
         if self._bdisasm:
             return self._bdisasm
 
@@ -256,10 +268,15 @@ class BpfProg:
         except CsError as E:
             vollog.log(
                 constants.LOGLEVEL_V,
-                f"Unable to disassemble jited program id={self.aux.id} "
+                f"Unable to disassemble bytecode of program id={self.aux.id} "
                 f"({E})",
             )
             self._bdisasm = []
+
+        vollog.log(
+            constants.LOGLEVEL_V,
+            f"Number of disassembled instructions: {len(self._bdisasm)}",
+        )
 
         return self._bdisasm
 
@@ -347,6 +364,7 @@ class BpfProg:
         return current if current[0] is not None else None
 
     def dump_mcode(self) -> str:
+        # TODO: re-implement using Capstone's 'detailed' disassembly
         re_imm = re.compile(r"^.*?(0xffff[0-9a-f]+?)$")
         dump: list[str] = []
 
