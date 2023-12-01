@@ -34,13 +34,11 @@ RUN set -exu 							&& \
     git clone							\
         https://github.com/volatilityfoundation/volatility3.git && \
     cd volatility3						&& \
-    git checkout tags/${VOL_VER} -b develop					&& \
+    git checkout tags/v${VOL_VER}           			&& \
     pip3 install -r requirements.txt				&& \
-    yes | pip3 uninstall capstone				&& \
     pip3 install 						\
 	jsonschema						\
 	networkx						\
-	"https://github.com/aquynh/capstone/archive/next.zip#egg=capstone&subdirectory=bindings/python" \
 	pygraphviz
 
 WORKDIR /opt/vol
