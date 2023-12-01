@@ -59,6 +59,10 @@ class BpfLink:
             "bpf_prog"
         )
 
+    @property
+    def label(self) -> str:
+        return f"{self.link.id}/{';'.join(self.get_fill_link_info())}"
+
     def row(self):
         return (
             hex(self.link.vol.offset),

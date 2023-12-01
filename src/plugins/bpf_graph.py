@@ -1,75 +1,89 @@
-"""
-SPDX-FileCopyrightText: © 2023 Valentin Obst <legal@bpfvol3.de>
-
-SPDX-License-Identifier: MIT
-"""
+# SPDX-FileCopyrightText: © 2023 Valentin Obst <legal@bpfvol3.de>
+# SPDX-License-Identifier: MIT
 
 """A Volatility3 plugin that tries to visualize the state of the BPF
 subsystem as a graph."""
 from collections.abc import Iterable
 from enum import Enum
+from typing import ClassVar
 
 import networkx as nx
 
-from volatility3.framework import interfaces, renderers
 from volatility3.framework.configuration import requirements
+from volatility3.framework.interfaces.configuration import RequirementInterface
+from volatility3.framework.interfaces.plugins import PluginInterface
 from volatility3.framework.objects import utility
+from volatility3.framework.renderers import TreeGrid
+from volatility3.plugins.linux.bpf_listlinks import LinkList
 from volatility3.plugins.linux.bpf_listmaps import MapList
 from volatility3.plugins.linux.bpf_listprocs import BpfPslist
 from volatility3.plugins.linux.bpf_listprogs import ProgList
+from volatility3.utility.prog import BpfProg
 
 
-class BpfGraph(interfaces.plugins.PluginInterface):
+class NodeType(Enum):
+    MAP = 1
+    PROG = 2
+    LINK = 3
+    PROCESS = 4
+
+
+class EdgeType(Enum):
+    MAP = 1
+    FD = 2
+    LINK = 3
+
+
+node_map_dict: dict[str, NodeType | str] = {
+    "node_type": NodeType.MAP,
+    "shape": "oval",
+    "style": "filled",
+}
+
+node_prog_dict: dict[str, NodeType | str] = {
+    "node_type": NodeType.PROG,
+    "shape": "note",
+    "style": "filled",
+}
+
+node_link_dict: dict[str, NodeType | str] = {
+    "node_type": NodeType.LINK,
+    "shape": "hexagon",
+    "style": "filled",
+}
+
+node_proc_dict: dict[str, NodeType | str] = {
+    "node_type": NodeType.PROCESS,
+    "shape": "diamond",
+    "style": "filled",
+}
+
+edge_map_dict: dict[str, EdgeType | str] = {
+    "edge_type": EdgeType.MAP,
+}
+
+edge_link_dict: dict[str, EdgeType | str] = {
+    "edge_type": EdgeType.LINK,
+    "style": "dashed",
+}
+
+edge_fd_dict: dict[str, EdgeType | str] = {
+    "edge_type": EdgeType.FD,
+    "style": "dotted",
+}
+
+
+class BpfGraph(PluginInterface):
     """Plots the state of the BPF subsystem as a graph."""
 
-    _required_framework_version = (2, 0, 0)
+    _required_framework_version: ClassVar = (2, 0, 0)
 
-    columns = [
-        ("STATUS", str),
-        ("FILE", str),
-    ]
-
-    class NodeTypes(Enum):
-        MAP = 1
-        PROG = 2
-        ATTACH_TYPE = 3
-        PROCESS = 4
-
-    class EdgeTypes(Enum):
-        MAP = 1
-        FD = 2
-        ATTACH_TYPE = 3
-
-    node_map_dict = {
-        "node_type": NodeTypes.MAP,
-        "shape": "oval",
-    }
-
-    node_prog_dict = {
-        "node_type": NodeTypes.PROG,
-        "shape": "note",
-    }
-
-    node_proc_dict = {
-        "node_type": NodeTypes.PROCESS,
-        "shape": "diamond",
-        "fillcolor": "gray",
-    }
-
-    edge_map_dict = {
-        "edge_type": EdgeTypes.MAP,
-    }
-
-    edge_fd_dict = {
-        "edge_type": EdgeTypes.FD,
-        "style": "dotted",
-        "color": "gray",
-    }
+    _version: ClassVar = (0, 0, 0)
 
     @classmethod
     def get_requirements(
         cls,
-    ) -> list[interfaces.configuration.RequirementInterface]:
+    ) -> list[RequirementInterface]:
         return [
             requirements.ModuleRequirement(
                 name="kernel",
@@ -87,6 +101,11 @@ class BpfGraph(interfaces.plugins.PluginInterface):
                 version=(0, 0, 0),
             ),
             requirements.PluginRequirement(
+                name="bpf_listlinks",
+                plugin=LinkList,
+                version=(0, 0, 0),
+            ),
+            requirements.PluginRequirement(
                 name="bpf_proc",
                 plugin=BpfPslist,
                 version=(0, 0, 0),
@@ -98,17 +117,18 @@ class BpfGraph(interfaces.plugins.PluginInterface):
         return "#" + hex(hash(hashable))[-6:].upper()
 
     def _generate_graph(self) -> list[str]:
-        G = nx.Graph()
+        g = nx.Graph()
 
         # add all the maps, color nodes according to the map type
-        G.add_nodes_from(
+        g.add_nodes_from(
             [
                 (
-                    f"{m.map.id}/{m.name}",
-                    self.node_map_dict
+                    m.label,
+                    node_map_dict
                     | {
-                        "id": int(m.map.id),
+                        "bpf_id": int(m.map.id),
                         "name": m.name,
+                        "label": m.label,
                         "fillcolor": self._get_color(m.type),
                     },
                 )
@@ -117,93 +137,135 @@ class BpfGraph(interfaces.plugins.PluginInterface):
         )
 
         # add all the programs and connect them to their maps, color
-        # nodes according to attach types
+        # nodes according to program type
         for prog in ProgList.list_progs(self.context, self.config["kernel"]):
-            G.add_nodes_from(
+            g.add_nodes_from(
                 [
                     (
-                        f"{prog.aux.id}/{prog.name}",
-                        self.node_prog_dict
+                        prog.label,
+                        node_prog_dict
                         | {
-                            "id": int(prog.aux.id),
+                            "bpf_id": int(prog.aux.id),
                             "name": prog.name,
-                            "label": prog.attach_to
-                            + f"\n{prog.aux.id}/{prog.name}",
+                            "label": prog.label,
                             "fillcolor": self._get_color(prog.type),
                         },
                     )
                 ]
             )
-            G.add_edges_from(
+            g.add_edges_from(
                 [
                     (
-                        f"{prog.aux.id}/{prog.name}",
-                        f"{m.map.id}/{m.name}",
-                        self.edge_map_dict,
+                        prog.label,
+                        m.label,
+                        edge_map_dict,
                     )
                     for m in prog.maps
                 ]
             )
 
-        # add all processes that hold BPF objects via fd, connect them
-        # to their resources, color according to pid
-        for _task, progs, maps, _ in BpfPslist.list_bpf_procs(
-            self.context, self.config["kernel"]
-        ):
-            task_comm = utility.array_to_string(_task.comm)
-            G.add_nodes_from(
+        # add all links and connect them to their programs, color according to
+        # link type
+        for lnk in LinkList.list_links(self.context, self.config["kernel"]):
+            g.add_nodes_from(
                 [
                     (
-                        f"{int(_task.pid)}/{task_comm}",
-                        self.node_proc_dict
+                        lnk.label,
+                        node_link_dict
                         | {
-                            "pid": int(_task.pid),
-                            "comm": task_comm,
-                            "label": f"{int(_task.pid)}/{task_comm}",
+                            "bpf_id": int(lnk.link.id),
+                            "label": lnk.label,
+                            "fillcolor": self._get_color(lnk.type),
                         },
                     )
                 ]
             )
-            G.add_edges_from(
+            g.add_edges_from(
                 [
                     (
-                        f"{int(_task.pid)}/{task_comm}",
-                        f"{m.map.id}/{m.name}",
-                        self.edge_fd_dict,
+                        BpfProg(lnk.prog, self.context).label,
+                        lnk.label,
+                        edge_link_dict,
+                    )
+                ]
+            )
+
+        # add all processes that hold BPF objects via fd, connect them
+        # to their resources, color according to pid
+        for task_, progs, maps, links in BpfPslist.list_bpf_procs(
+            self.context, self.config["kernel"]
+        ):
+            task_comm: str = str(utility.array_to_string(task_.comm))
+            task_label: str = f"{int(task_.pid)}/{task_comm}"
+            g.add_nodes_from(
+                [
+                    (
+                        task_label,
+                        node_proc_dict
+                        | {
+                            "pid": int(task_.pid),
+                            "comm": task_comm,
+                            "label": f"{int(task_.pid)}/{task_comm}",
+                            "fillcolor": self._get_color(str(task_.pid)),
+                        },
+                    )
+                ]
+            )
+            g.add_edges_from(
+                [
+                    (
+                        task_label,
+                        m.label,
+                        edge_fd_dict,
                     )
                     for m in maps
                 ]
-            )
-            G.add_edges_from(
-                [
+                + [
                     (
-                        f"{int(_task.pid)}/{task_comm}",
-                        f"{prog.aux.id}/{prog.name}",
-                        self.edge_fd_dict,
+                        task_label,
+                        prog.label,
+                        edge_fd_dict,
                     )
                     for prog in progs
                 ]
+                + [
+                    (
+                        task_label,
+                        link.label,
+                        edge_fd_dict,
+                    )
+                    for link in links
+                ]
             )
 
-        A = nx.nx_agraph.to_agraph(G)
+        ag = nx.nx_agraph.to_agraph(g)
+        ag.graph_attr["overlap"] = "false"
 
-        filename = (
-            str(self.context.layers["base_layer"].location).split("/")[-1]
-            + ".dot"
-        )
-        with self.open(f"{filename}") as f:
-            A.write(f)
+        files: list[str] = []
+        filename: str = "graph"
 
-        return [f"{filename}"]
+        with self.open(f"{filename}.dot") as f:
+            files.append(str(f.preferred_filename))
+            ag.write(f)
+
+        ag.draw(f"{filename}.png", format="png", prog="neato")
+        files.append(f"{filename}.png")
+
+        return files
 
     def _generator(
         self,
     ) -> Iterable[tuple[int, tuple]]:
         for filename in self._generate_graph():
-            yield (0, tuple(("OK", filename)))
+            yield (0, ("OK", filename))
 
-    def run(self):
-        return renderers.TreeGrid(
-            self.columns,
+    def run(self) -> TreeGrid:
+        columns: list[tuple[str, type]] = [
+            ("STATUS", str),
+            ("FILE", str),
+        ]
+
+        return TreeGrid(
+            columns,
             self._generator(),
         )

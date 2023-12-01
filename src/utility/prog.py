@@ -125,6 +125,10 @@ class BpfProg:
         return self.prog.vol.get("offset") == other.prog.vol.get("offset")
 
     @property
+    def label(self) -> str:
+        return f"{self.aux.id}/{self.name}"
+
+    @property
     def name(self) -> str:
         if self._name:
             return self._name

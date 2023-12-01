@@ -77,6 +77,10 @@ class BpfMap:
         )
         self.name: str = str(array_to_string(self.map.name))
 
+    @property
+    def label(self) -> str:
+        return f"{self.map.id}/{self.name}"
+
     def row(self):
         """Extract the fields needed for the final output
         Args:
