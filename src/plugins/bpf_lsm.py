@@ -8,38 +8,42 @@ Security Instrumentation (KRSI) framework.
 import logging
 from collections.abc import Iterable
 from itertools import takewhile
-from typing import Optional
+from typing import TYPE_CHECKING, ClassVar
 
-from capstone import CS_ARCH_X86, CS_MODE_64, Cs, CsError
+from capstone import CS_ARCH_X86, CS_MODE_64, Cs, CsError, CsInsn
 
+from volatility3.framework import interfaces
+from volatility3.framework.configuration import requirements
+from volatility3.framework.exceptions import PagedInvalidAddressException
+from volatility3.framework.interfaces.configuration import RequirementInterface
 from volatility3.framework.interfaces.context import (
     ContextInterface,
     ModuleInterface,
 )
-from volatility3.framework.renderers import TreeGrid
-from volatility3.framework import constants, interfaces
-from volatility3.framework.configuration import requirements
-from volatility3.framework.exceptions import PagedInvalidAddressException
-from volatility3.utility.prog import BpfProg
-from volatility3.utility.link import BpfLink
-from volatility3.plugins.linux.bpf_listlinks import LinkList
+from volatility3.framework.interfaces.plugins import PluginInterface
 from volatility3.framework.interfaces.symbols import SymbolInterface
+from volatility3.framework.renderers import TreeGrid
+from volatility3.plugins.linux.bpf_listlinks import LinkList
+from volatility3.utility.prog import BpfProg
 
-vollog = logging.getLogger(__name__)
+if TYPE_CHECKING:
+    from volatility3.utility.link import BpfLink
+
+vollog: logging.Logger = logging.getLogger(__name__)
 
 
-class BpfLsm(interfaces.plugins.PluginInterface):
+class BpfLsm(PluginInterface):
     """Volatility3 plugin that shows the current state of the Kernel
     Runtime Security Instrumentation (KRSI) framework."""
 
-    _required_framework_version = (2, 0, 0)
+    _required_framework_version: ClassVar = (2, 0, 0)
 
-    _version = (0, 0, 0)
+    _version: ClassVar = (0, 0, 0)
 
     @classmethod
     def get_requirements(
         cls,
-    ) -> list[interfaces.configuration.RequirementInterface]:
+    ) -> list[RequirementInterface]:
         return [
             requirements.ModuleRequirement(
                 name="kernel",
@@ -58,14 +62,15 @@ class BpfLsm(interfaces.plugins.PluginInterface):
         hook: interfaces.symbols.SymbolInterface,
         hook_address: int,
         raw: bytes,
-    ) -> Optional[int]:
+    ) -> int | None:
         """If there is a BPF trampoline attached to the hook, returns
         its address."""
+        tramp_address: int | None = None
         # TODO: Disassembling sometimes fails. How can I know the size
         # of those stubs in advance?
         try:
-            md = Cs(CS_ARCH_X86, CS_MODE_64)
-            mdisasm = list(
+            md: Cs = Cs(CS_ARCH_X86, CS_MODE_64)
+            mdisasm: list[CsInsn] = list(
                 takewhile(
                     lambda insn: insn.mnemonic != "ret",
                     md.disasm(raw, hook_address),
@@ -76,7 +81,7 @@ class BpfLsm(interfaces.plugins.PluginInterface):
                 "Unable to disassemble trivial BPF LSM stub "
                 f"{hook.name} ({E})",
             )
-            return None
+            return tramp_address
         # The first (and hopefully only) call instruction (if present)
         # in the bpf_lsm_ stub will give us the address of the BPF
         # trampoline.
@@ -85,12 +90,13 @@ class BpfLsm(interfaces.plugins.PluginInterface):
             None,
         )
         if tramp_address_str is not None:
-            tramp_address: int = int(tramp_address_str, 16)
+            tramp_address = int(tramp_address_str, 16)
             vollog.info(
-                f"Found call to trampoline at {hex(tramp_address)}, "
+                f"Found call to trampoline@{hex(tramp_address)}, "
                 f"{[' '.join([insn.mnemonic, insn.op_str]) for insn in mdisasm]}"
             )
-            return tramp_address
+
+        return tramp_address
 
     @classmethod
     def list_bpf_lsm(
@@ -103,16 +109,16 @@ class BpfLsm(interfaces.plugins.PluginInterface):
         vmlinux: ModuleInterface = context.modules[symbol_table]
 
         # Only tracing links can attach to the LSM hooks (true?)
-        tr_links: list[BpfLink] = list(
+        tr_links: list[BpfLink] = [  # noqa: C416
             lnk
             for lnk in LinkList.list_links(
                 context,
                 symbol_table,
                 lambda link: not str(link.type).endswith("TYPE_TRACING"),
             )
-        )
+        ]
         vollog.info(
-            f"Found {len(tr_links)} tracing links"
+            f"Found {len(tr_links)} tracing links, "
             f"trampolines {[hex(link._downcast('bpf_tracing_link').trampoline.cur_image.image) for link in tr_links]}"
         )
         kvo: int = int(
@@ -161,8 +167,7 @@ class BpfLsm(interfaces.plugins.PluginInterface):
                 # This could indicate hidden BPF objects, a currupt
                 # memory image or an ordinary bug in my code.
                 vollog.warning(
-                    "Unable to find a link for in-use BPF LSM hook "
-                    f"{hook.name}",
+                    "Unable to find a link for in-use BPF LSM hook {hook.name}",
                 )
                 continue
             yield hook, prog_list
