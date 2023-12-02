@@ -1,8 +1,7 @@
+# SPDX-FileCopyrightText: © 2023 Valentin Obst <legal@bpfvol3.de>
+# SPDX-License-Identifier: MIT
+
 """
-SPDX-FileCopyrightText: © 2023 Valentin Obst <legal@bpfvol3.de>
-
-SPDX-License-Identifier: MIT
-
 Volatility3 plugin that shows the current state of the Kernel Runtime
 Security Instrumentation (KRSI) framework.
 """
@@ -13,10 +12,18 @@ from typing import Optional
 
 from capstone import CS_ARCH_X86, CS_MODE_64, Cs, CsError
 
-from volatility3.framework import constants, interfaces, renderers
+from volatility3.framework.interfaces.context import (
+    ContextInterface,
+    ModuleInterface,
+)
+from volatility3.framework.renderers import TreeGrid
+from volatility3.framework import constants, interfaces
 from volatility3.framework.configuration import requirements
 from volatility3.framework.exceptions import PagedInvalidAddressException
-from volatility3.utility.prog import BpfLink, BpfProg, LinkList
+from volatility3.utility.prog import BpfProg
+from volatility3.utility.link import BpfLink
+from volatility3.plugins.linux.bpf_listlinks import LinkList
+from volatility3.framework.interfaces.symbols import SymbolInterface
 
 vollog = logging.getLogger(__name__)
 
@@ -29,12 +36,6 @@ class BpfLsm(interfaces.plugins.PluginInterface):
 
     _version = (0, 0, 0)
 
-    columns = [
-        ("LSM HOOK", str),
-        ("Nr. PROGS", int),
-        ("IDs", str),
-    ]
-
     @classmethod
     def get_requirements(
         cls,
@@ -45,11 +46,17 @@ class BpfLsm(interfaces.plugins.PluginInterface):
                 description="Linux kernel",
                 architectures=["Intel32", "Intel64"],
             ),
+            requirements.PluginRequirement(
+                name="bpf_listlinks",
+                plugin=LinkList,
+                version=(0, 0, 0),
+            ),
         ]
 
     @staticmethod
     def _get_tramp_address(
         hook: interfaces.symbols.SymbolInterface,
+        hook_address: int,
         raw: bytes,
     ) -> Optional[int]:
         """If there is a BPF trampoline attached to the hook, returns
@@ -58,9 +65,11 @@ class BpfLsm(interfaces.plugins.PluginInterface):
         # of those stubs in advance?
         try:
             md = Cs(CS_ARCH_X86, CS_MODE_64)
-            mdisasm = takewhile(
-                lambda insn: insn.mnemonic != "ret",
-                md.disasm(raw, hook.address),
+            mdisasm = list(
+                takewhile(
+                    lambda insn: insn.mnemonic != "ret",
+                    md.disasm(raw, hook_address),
+                )
             )
         except CsError as E:
             vollog.warning(
@@ -71,64 +80,82 @@ class BpfLsm(interfaces.plugins.PluginInterface):
         # The first (and hopefully only) call instruction (if present)
         # in the bpf_lsm_ stub will give us the address of the BPF
         # trampoline.
-        tramp_address = next(
+        tramp_address_str: str | None = next(
             (insn.op_str for insn in mdisasm if insn.mnemonic == "call"),
             None,
         )
-        if tramp_address:
-            return int(tramp_address, 16)
+        if tramp_address_str is not None:
+            tramp_address: int = int(tramp_address_str, 16)
+            vollog.info(
+                f"Found call to trampoline at {hex(tramp_address)}, "
+                f"{[' '.join([insn.mnemonic, insn.op_str]) for insn in mdisasm]}"
+            )
+            return tramp_address
 
     @classmethod
     def list_bpf_lsm(
         cls,
-        context: interfaces.context.ContextInterface,
+        context: ContextInterface,
         symbol_table: str,
-    ) -> Iterable[tuple[interfaces.symbols.SymbolInterface, list[BpfProg]]]:
+    ) -> Iterable[tuple[SymbolInterface, list[BpfProg]]]:
         """Generates all the LSM hooks that have at least one BPF
         program attached"""
-        vmlinux: interfaces.ModuleInterface = context.modules[symbol_table]
+        vmlinux: ModuleInterface = context.modules[symbol_table]
+
         # Only tracing links can attach to the LSM hooks (true?)
-        links: list[BpfLink] = list(
-            link
-            for link in LinkList.list_links(
+        tr_links: list[BpfLink] = list(
+            lnk
+            for lnk in LinkList.list_links(
                 context,
                 symbol_table,
-                lambda link: link.typed_link.vol.get("type_name").split(
-                    constants.BANG
-                )[1]
-                != "bpf_tracing_link",
+                lambda link: not str(link.type).endswith("TYPE_TRACING"),
             )
+        )
+        vollog.info(
+            f"Found {len(tr_links)} tracing links"
+            f"trampolines {[hex(link._downcast('bpf_tracing_link').trampoline.cur_image.image) for link in tr_links]}"
+        )
+        kvo: int = int(
+            context.layers[vmlinux.layer_name].config["kernel_virtual_offset"]
         )
         for hook in (
             vmlinux.get_symbol(sym)
             for sym in vmlinux.symbols
             if sym.startswith("bpf_lsm_")
         ):
+            # account for virtual KASLR
+            hook_address: int = int(hook.address) + kvo
             try:
-                tramp_address = cls._get_tramp_address(
+                mcode: bytes = context.layers.read(
+                    vmlinux.layer_name,
+                    hook_address,
+                    32,
+                )
+                tramp_address: int | None = cls._get_tramp_address(
                     hook,
-                    context.layers.read(
-                        vmlinux.layer_name,
-                        hook.address,
-                        32,
-                    ),
+                    hook_address,
+                    mcode,
                 )
             except PagedInvalidAddressException as E:
                 # TODO: This should not happen... Figure out why it does
                 # happen sometimes!
                 vollog.warning(
                     "Unable to read instructions of trivial BPF LSM "
-                    f"stub {hook.name} at {hex(hook.address)} ({E})",
+                    f"stub {hook.name} at {hex(hook_address)} ({E})",
                 )
                 continue
             if not tramp_address:
                 # There is no BPF program on this hook.
                 continue
+            vollog.info(
+                f"Hook {hook.name}@{hex(hook_address)} is attached to trampoline@{hex(tramp_address)}"
+            )
             # Find the link(s) that attach program(s) to this hook.
             prog_list: list[BpfProg] = [
-                link.prog
-                for link in links
-                if link.typed_link.trampoline.cur_image.image == tramp_address
+                BpfProg(link.prog, context)
+                for link in tr_links
+                if link._downcast("bpf_tracing_link").trampoline.cur_image.image
+                == tramp_address
             ]
             if not prog_list:
                 # This could indicate hidden BPF objects, a currupt
@@ -144,7 +171,7 @@ class BpfLsm(interfaces.plugins.PluginInterface):
         self,
     ) -> Iterable[tuple[int, tuple]]:
         """Generates the rows of the output."""
-        symbol_table = self.config["kernel"]
+        symbol_table: str = str(self.config["kernel"])
 
         for hook, prog_list in self.list_bpf_lsm(self.context, symbol_table):
             yield (
@@ -156,8 +183,14 @@ class BpfLsm(interfaces.plugins.PluginInterface):
                 ),
             )
 
-    def run(self) -> renderers.TreeGrid:
-        return renderers.TreeGrid(
-            self.columns,
+    def run(self) -> TreeGrid:
+        columns: list[tuple[str, type]] = [
+            ("LSM HOOK", str),
+            ("Nr. PROGS", int),
+            ("IDs", str),
+        ]
+
+        return TreeGrid(
+            columns,
             self._generator(),
         )
