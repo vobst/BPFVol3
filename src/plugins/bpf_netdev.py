@@ -20,7 +20,7 @@ from volatility3.framework.interfaces.plugins import PluginInterface
 from volatility3.framework.renderers import TreeGrid
 from volatility3.framework.symbols.linux import LinuxUtilities
 from volatility3.framework.symbols.linux.extensions import net_device
-from volatility3.plugins.linux.net_devs import Ifconfig
+from volatility3.plugins.linux.ifconfig import Ifconfig
 from volatility3.utility.prog import BpfProg
 
 vollog: logging.Logger = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ class BpfClsList(PluginInterface):
         # iteself was introduced in 7d1d65c, v3.13-rc1
         if not vmlinux.has_symbol("cls_bpf_classify"):
             vollog.error(
-                "Cannot extract BPF classifiers from kernel versions"
+                "Cannot extract BPF classifiers from kernel versions "
                 "before v3.13-rc1 or with cls_bpf compiled as a module."
             )
             return []
@@ -88,7 +88,7 @@ class BpfClsList(PluginInterface):
             for cls_prog in cls_bpf_head.plist.to_list(
                 symbol_table + constants.BANG + "cls_bpf_prog", "link"
             ):
-                ret.append(BpfProg(int(cls_prog.filter), context))
+                ret.append(BpfProg(cls_prog.filter, context))
 
             tcf_proto: ObjectInterface = tcf_proto.next
 
@@ -109,7 +109,7 @@ class BpfClsList(PluginInterface):
             if net_dev.has_member("miniq_egress"):
                 # <6.6 && CONFIG_NET_CLS_ACT
                 miniq_egress = net_dev.miniq_egress
-                miniq_ingress = net_device.miniq_ingress
+                miniq_ingress = net_dev.miniq_ingress
             elif net_dev.has_member("tcx_egress"):
                 # >=6.6 && CONFIG_NET_XGRESS, e420bed
                 entry_egress = LinuxUtilities.container_of(
@@ -140,11 +140,14 @@ class BpfClsList(PluginInterface):
                 context, vmlinux_module_name, miniq_egress
             )
 
+            if not bpf_cls_egress and not bpf_cls_ingress:
+                continue
+
             yield ns, net_dev, bpf_cls_egress, bpf_cls_ingress
 
     def _generator(
         self,
-    ) -> Iterable[tuple[str, str, str, str]]:
+    ) -> Iterable[tuple[int, tuple[str, str, str, str]]]:
         for _, net_dev, bpf_cls_egress, bpf_cls_ingress in self.list_bpf_cls(
             self.context, self.config["kernel"]
         ):
@@ -152,14 +155,20 @@ class BpfClsList(PluginInterface):
                 self.context, self.config["kernel"], net_dev
             )
 
-            yield name, mac_addr, ",".join(
-                prog.aux.id for prog in bpf_cls_egress
-            ), ",".join(prog.aux.id for prog in bpf_cls_ingress)
+            yield (
+                0,
+                (
+                    str(name),
+                    str(mac_addr),
+                    ",".join(str(prog.aux.id) for prog in bpf_cls_egress),
+                    ",".join(str(prog.aux.id) for prog in bpf_cls_ingress),
+                ),
+            )
 
     def run(self) -> TreeGrid:
         columns: list[tuple[str, type]] = [
             ("NAME", str),
-            ("MAC ADDR", int),
+            ("MAC ADDR", str),
             ("EGRESS", str),
             ("INGRESS", str),
         ]
