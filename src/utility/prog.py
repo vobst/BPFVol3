@@ -31,7 +31,7 @@ from volatility3.framework.objects.utility import (
     array_of_pointers,
     array_to_string,
 )
-from volatility3.utility.btf import Btf, BtfException
+from volatility3.utility.btf import Btf, BtfError
 from volatility3.utility.helpers import get_vol_template, make_vol_type
 from volatility3.utility.map import BpfMap
 
@@ -88,18 +88,18 @@ class BpfProg:
                     constants.LOGLEVEL_V,
                     "Kernel version before v5.0-rc1 does not support prog BTF",
                 )
-                raise BtfException
+                raise BtfError
             # BTF is nice-to-have, but a program is not required to have it
             if int(self.aux.btf) == 0:
                 vollog.log(
                     constants.LOGLEVEL_V,
                     "Program does not have BTF info attached",
                 )
-                raise BtfException
+                raise BtfError
 
             # ok, we have btf info
             self.btf: Btf | None = Btf(self.aux.btf, context)
-        except BtfException:
+        except BtfError:
             self.btf: Btf | None = None
 
         # lazy init

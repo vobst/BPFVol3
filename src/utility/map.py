@@ -18,7 +18,7 @@ from volatility3.framework.interfaces.context import (
 from volatility3.framework.interfaces.objects import ObjectInterface
 from volatility3.framework.objects.utility import array_to_string
 from volatility3.framework.symbols.linux import LinuxUtilities
-from volatility3.utility.btf import Btf, BtfException
+from volatility3.utility.btf import Btf, BtfError
 from volatility3.utility.helpers import make_vol_type
 
 vollog: logging.Logger = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ class BpfMap:
                     "Kernel version before v4.18-rc1 does not support"
                     "map BTF",
                 )
-                raise BtfException
+                raise BtfError
 
             # BTF is nice-to-have, but a map is not required to have it
             if int(self.map.btf) == 0:
@@ -58,10 +58,10 @@ class BpfMap:
                     constants.LOGLEVEL_V,
                     "Map does not have BTF info attached",
                 )
-                raise BtfException
+                raise BtfError
 
             self.btf: Btf | None = Btf(self.map.btf, context)
-        except BtfException:
+        except BtfError:
             self.btf: Btf | None = None
 
         self.type = self.types(self.map.map_type)

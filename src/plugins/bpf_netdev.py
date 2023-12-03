@@ -81,7 +81,10 @@ class BpfClsList(PluginInterface):
         )
 
         tcf_proto: ObjectInterface = miniq.filter_list
-        while int(tcf_proto) != 0 and tcf_proto.classify == fn_cls_bpf_classify:
+        while int(tcf_proto) != 0:
+            if tcf_proto.classify != fn_cls_bpf_classify:
+                continue
+
             cls_bpf_head: ObjectInterface = vmlinux.object(
                 "cls_bpf_head", tcf_proto.root, absolute=True
             )

@@ -1,13 +1,12 @@
+# SPDX-FileCopyrightText: © 2023 Valentin Obst <legal@bpfvol3.de>
+# SPDX-License-Identifier: MIT
+
 """
-SPDX-FileCopyrightText: © 2023 Valentin Obst <legal@bpfvol3.de>
-
-SPDX-License-Identifier: MIT
-
 This file contains classes for working with BPF type information.
 """
 import logging
 from collections.abc import Iterable
-from typing import Optional
+from typing import ClassVar, Optional
 
 from volatility3.framework import constants, interfaces
 from volatility3.framework.objects.utility import array_of_pointers
@@ -21,7 +20,7 @@ from volatility3.utility.helpers import (
 vollog = logging.getLogger(__name__)
 
 
-class BtfException(Exception):
+class BtfError(Exception):
     """Raised when obtaining BTF is not possible"""
 
 
@@ -30,7 +29,7 @@ class Btf:
     by using type information."""
 
     # Map a kind to the type of the data that follows it
-    kind_to_vtype = {BtfKind.BTF_KIND_DATASEC: "btf_var_secinfo"}
+    kind_to_vtype: ClassVar = {BtfKind.BTF_KIND_DATASEC: "btf_var_secinfo"}
 
     def __init__(
         self,
@@ -47,7 +46,7 @@ class Btf:
                 self.context,
             )
         else:
-            raise BtfException
+            raise BtfError
 
     def get_string(self, type_id) -> str:
         btf_type = self._type_by_id(type_id)
@@ -93,7 +92,7 @@ class Btf:
                 f"BTF kind not (yet) supported: {kind}, defaulting to"
                 " hex dump",
             )
-            s += f"[{' '.join(map(lambda n: format(n, '02x'), list(b)))}]"
+            s += f"[{' '.join(format(n, '02x') for n in list(b))}]"
         return s
 
     def _type_id_resolve(
