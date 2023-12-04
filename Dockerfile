@@ -1,7 +1,9 @@
-FROM ubuntu:latest
+FROM ubuntu:jammy
 
 ARG VOL_VER
 ENV DEBIAN_FRONTEND noninteractive
+
+SHELL ["/bin/bash", "-e", "-u", "-o", "pipefail", "-c"]
 
 RUN set -e 							&& \
     apt-get update 						&& \
@@ -27,30 +29,24 @@ RUN set -e 							&& \
     python3 -m pip install --upgrade --no-cache-dir pip 	&& \
     apt-get -y autoremove --purge 				&& \
     apt-get clean 						&& \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/cache/apt/archives /var/lib/apt/lists/*
 
 WORKDIR /opt/vol
-RUN set -exu 							&& \
-    git clone							\
+RUN git clone							\
         https://github.com/volatilityfoundation/volatility3.git && \
     cd volatility3						&& \
     git checkout tags/v${VOL_VER}           			&& \
-    pip3 install -r requirements.txt				&& \
-    pip3 install 						\
-	jsonschema						\
+    pip3 install -r requirements-dev.txt			&& \
+    pip3 install --no-cache-dir					\
 	networkx						\
 	pygraphviz
 
 WORKDIR /opt/vol
-RUN set -exu 							&& \
-    git clone							\
+RUN git clone							\
         https://github.com/volatilityfoundation/dwarf2json 	&& \
     cd dwarf2json						&& \
     go build
 
 WORKDIR /opt/vol/volatility3
-RUN set -exu 							&& \
-    mkdir -p volatility3/symbols/linux				&& \
+RUN mkdir -p volatility3/symbols/linux				&& \
     chmod +x volshell.py
-
-WORKDIR /io

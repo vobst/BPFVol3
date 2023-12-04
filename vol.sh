@@ -74,7 +74,7 @@ while (("$#")); do
             docker build \
                 --build-arg VOL_VER=${VOL_VER} \
                 -t bpfvol3:latest \
-                - <./scripts/dockerfile_vol
+                - <./Dockerfile
 
             exit 0
             ;;

@@ -1,8 +1,7 @@
+# SPDX-FileCopyrightText: © 2023 Valentin Obst <legal@bpfvol3.de>
+# SPDX-License-Identifier: MIT
+
 """
-SPDX-FileCopyrightText: © 2023 Valentin Obst <legal@bpfvol3.de>
-
-SPDX-License-Identifier: MIT
-
 This file contains small helper functions that are used in more than
 one other part of the code.
 """
