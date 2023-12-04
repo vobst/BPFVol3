@@ -10,18 +10,16 @@ RUN set -e 							&& \
     apt-get upgrade -yq 					&& \
     apt-get install -yq --no-install-recommends			\
 	build-essential						\
-	ca-certificates						\
-	dwarfdump						\
-	curl							\
 	clang							\
+	curl							\
+	dwarfdump						\
 	elfutils						\
-	graphviz 						\
-	graphviz-dev						\
 	git							\
 	golang-go						\
+	graphviz 						\
+	graphviz-dev						\
 	libssl-dev						\
 	llvm							\
-    	locales							\
 	python3							\
 	python3-dev						\
 	python3-pip						\
