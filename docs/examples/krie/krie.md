@@ -58,7 +58,7 @@ As we can see, the program might use the `bpf_send_signal` helper to send a sign
 It send signal no. 9, i.e., `SIGKILL`, probably in an attempt to stop the task from executing after elevating its privileges.
 
 Looking at the map names gives us a glimpse of the complex state machine formed by the more than two hundred programs.
-```
+```console
 # vol -f /io/dumps/3a3549ff75bafbf103edf0ca3a5cdb39.elf linux.bpf_listmaps
 Volatility 3 Framework 2.5.0
 Progress:  100.00               Stacking attempts finished
@@ -112,7 +112,7 @@ PID     COMM    PROGS   MAPS    LINKS
 
 What do you think: is `krie` hiding some of its LSM hooks to protect them from being disabled by exploits? The `bpf_lsm` plugin has the unsurprising answer: all hooks are connected to links that are present in the above list.
 ```console
-3# vol -f /io/dumps/3a3549ff75bafbf103edf0ca3a5cdb39.elf linux.bpf_lsm
+# vol -f /io/dumps/3a3549ff75bafbf103edf0ca3a5cdb39.elf linux.bpf_lsm
 Volatility 3 Framework 2.5.0
 Progress:  100.00               Stacking attempts finished
 LSM HOOK        Nr. PROGS       IDs
