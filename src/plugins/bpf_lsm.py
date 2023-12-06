@@ -31,6 +31,18 @@ if TYPE_CHECKING:
 
 vollog: logging.Logger = logging.getLogger(__name__)
 
+# symbols that start with bpf_lsm_ but are no hooks
+BPF_LSM_BLACKLIST: list[str] = [
+    "bpf_lsm_blob_sizes",
+    "bpf_lsm_find_cgroup_shim",
+    "bpf_lsm_func_proto",
+    "bpf_lsm_hooks",
+    "bpf_lsm_init",
+    "bpf_lsm_is_sleepable_hook",
+    "bpf_lsm_is_trusted",
+    "bpf_lsm_verify_prog",
+]
+
 
 class BpfLsm(PluginInterface):
     """Volatility3 plugin that shows the current state of the Kernel
@@ -66,8 +78,8 @@ class BpfLsm(PluginInterface):
         """If there is a BPF trampoline attached to the hook, returns
         its address."""
         tramp_address: int | None = None
-        # TODO: Disassembling sometimes fails. How can I know the size
-        # of those stubs in advance?
+        # TODO: Disassembling sometimes fails.
+        # Q: How can I know the size of those stubs in advance?
         try:
             md: Cs = Cs(CS_ARCH_X86, CS_MODE_64)
             mdisasm: list[CsInsn] = list(
@@ -128,6 +140,8 @@ class BpfLsm(PluginInterface):
             vmlinux.get_symbol(sym)
             for sym in vmlinux.symbols
             if sym.startswith("bpf_lsm_")
+            and sym not in BPF_LSM_BLACKLIST
+            and not sym.endswith(".cold")
         ):
             # account for virtual KASLR
             hook_address: int = int(hook.address) + kvo
@@ -167,7 +181,7 @@ class BpfLsm(PluginInterface):
                 # This could indicate hidden BPF objects, a currupt
                 # memory image or an ordinary bug in my code.
                 vollog.warning(
-                    "Unable to find a link for in-use BPF LSM hook {hook.name}",
+                    f"Unable to find a link for in-use BPF LSM hook {hook.name}",
                 )
                 continue
             yield hook, prog_list
