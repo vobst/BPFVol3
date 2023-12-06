@@ -119,7 +119,7 @@ $ ./scripts/vol.sh --run
 │   ├── container_init
 │   ├── fix_symbols.sh
 │   ├── pack_dump.sh
-│   └── prepare_kernel.sh
+│   └── gen_symbols.sh
 ├── src
 │   ├── patches
 │   │   ├── v2.4.2.patch
