@@ -110,6 +110,7 @@ class BpfGraph(PluginInterface):
                 plugin=BpfPslist,
                 version=(0, 0, 0),
             ),
+            # TODO: add option to restrict to connected component of subset of nodes
         ]
 
     @classmethod
@@ -118,6 +119,8 @@ class BpfGraph(PluginInterface):
 
     def _generate_graph(self) -> list[str]:
         g = nx.Graph()
+
+        # TODO: include full `row` information in the nodes
 
         # add all the maps, color nodes according to the map type
         g.add_nodes_from(
@@ -250,6 +253,8 @@ class BpfGraph(PluginInterface):
 
         ag.draw(f"{filename}.png", format="png", prog="neato")
         files.append(f"{filename}.png")
+
+        # TODO: generate a legend
 
         return files
 
