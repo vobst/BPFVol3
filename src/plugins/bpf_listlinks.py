@@ -7,7 +7,7 @@ typically accessed via bpftool link list subcommand
 """
 import logging
 from collections.abc import Callable, Iterable
-from typing import TYPE_CHECKING, Any, ClassVar, Optional
+from typing import TYPE_CHECKING, ClassVar, Optional
 
 from volatility3.framework import constants
 from volatility3.framework.configuration import requirements
@@ -141,7 +141,7 @@ class LinkList(PluginInterface):
         return lambda _: False
 
     def run(self) -> TreeGrid:
-        columns: list[tuple[str, Any]] = [
+        columns: list[tuple[str, type]] = [
             ("OFFSET (V)", str),
             ("ID", int),
             ("TYPE", str),
