@@ -15,9 +15,6 @@ from volatility3.framework.interfaces.plugins import PluginInterface
 from volatility3.framework.objects import utility
 from volatility3.framework.renderers import TreeGrid
 from volatility3.framework.symbols.linux.extensions import task_struct
-from volatility3.plugins.linux.bpf_listlinks import LinkList
-from volatility3.plugins.linux.bpf_listmaps import MapList
-from volatility3.plugins.linux.bpf_listprogs import ProgList
 from volatility3.plugins.linux.lsof import Lsof
 from volatility3.utility.link import BpfLink
 from volatility3.utility.map import BpfMap
@@ -46,21 +43,6 @@ class BpfPslist(PluginInterface):
                 name="kernel",
                 description="Linux kernel",
                 architectures=["Intel32", "Intel64"],
-            ),
-            requirements.PluginRequirement(
-                name="bpf_listmaps",
-                plugin=MapList,
-                version=(0, 0, 0),
-            ),
-            requirements.PluginRequirement(
-                name="bpf_listprogs",
-                plugin=ProgList,
-                version=(0, 0, 0),
-            ),
-            requirements.PluginRequirement(
-                name="bpf_listlinks",
-                plugin=LinkList,
-                version=(0, 0, 0),
             ),
             requirements.PluginRequirement(
                 name="lsof",
