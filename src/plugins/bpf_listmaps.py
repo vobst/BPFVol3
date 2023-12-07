@@ -6,7 +6,7 @@ A Volatility3 plugin that tries to display information
 typically accessed via bpftool map (list|dump) subcommands
 """
 from collections.abc import Callable, Iterable
-from typing import TYPE_CHECKING, Any, ClassVar, Optional
+from typing import TYPE_CHECKING, ClassVar, Optional
 
 from volatility3.framework.configuration import requirements
 from volatility3.framework.interfaces.configuration import RequirementInterface
@@ -49,12 +49,6 @@ class MapList(PluginInterface):
             requirements.BooleanRequirement(
                 name="dump",
                 description="If True, map contents are written to a file.",
-                optional=True,
-                default=False,
-            ),
-            requirements.BooleanRequirement(
-                name="raw",
-                description="If True, raw map contents are written to a file.",
                 optional=True,
                 default=False,
             ),
@@ -140,7 +134,7 @@ class MapList(PluginInterface):
         return lambda _: False
 
     def run(self) -> TreeGrid:
-        columns: list[tuple[str, Any]] = [
+        columns: list[tuple[str, type]] = [
             ("OFFSET (V)", str),
             ("ID", int),
             ("TYPE", str),
