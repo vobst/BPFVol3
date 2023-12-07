@@ -180,6 +180,7 @@ class BpfLsm(PluginInterface):
             if not prog_list:
                 # This could indicate hidden BPF objects, a currupt
                 # memory image or an ordinary bug in my code.
+                # TODO: add column that indicates prensence of hidden programs
                 vollog.warning(
                     f"Unable to find a link for in-use BPF LSM hook {hook.name}",
                 )
@@ -205,7 +206,7 @@ class BpfLsm(PluginInterface):
     def run(self) -> TreeGrid:
         columns: list[tuple[str, type]] = [
             ("LSM HOOK", str),
-            ("Nr. PROGS", int),
+            ("Nr. PROGS", int),  # TODO: redundat, remove
             ("IDs", str),
         ]
 
