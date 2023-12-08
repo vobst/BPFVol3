@@ -141,3 +141,17 @@ NAME    MAC ADDR        EGRESS  INGRESS
 Ok, there are not. Finally, we can use the `bpf_graph` plugin to get a visual representation all the programs, maps, links and processes. Programs are connected to the maps and links they use. Processes are connected to the BPF resources they hold via fd. Coloring of BPF objects is based on their load type while processes are colored based on their pid. I must admit, it is a bit overwhelming, but I promise we are planning to make the graph more useful in the future - adding a legend would be a good first step ;)
 
 ![krie-3410c66d-26be0e1ef560.elf.png](../../media/krie-3410c66d-26be0e1ef560.elf.png)
+
+However, there is something that we can do to reduce the complexity at least somewhat. First, the plugin accepts a list of node types that should be included in the output. Second, we can specify a list of nodes and only the connected components that include at least one of them will be included in the output. Invoking the plugin like that produces a somewhat less messy graph.
+
+```console
+vol -f /io/dumps/3a3549ff75bafbf103edf0ca3a5cdb39.elf linux.bpf_graph --components prog-279 --types prog map
+Volatility 3 Framework 2.5.0
+Progress:  100.00               Stacking attempts finished
+STATUS  FILE
+
+OK      graph.dot
+OK      graph.png
+```
+
+![krie-3410c66d-26be0e1ef560_filtered.png](../../media/krie-3410c66d-26be0e1ef560_filtered.png)
