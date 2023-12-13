@@ -1,0 +1,36 @@
+[tool.ruff]
+select = ["F", "E", "W", "C90", "N", "UP", "B", "A", "PL", "C4", "EXE", "ISC", "PIE", "T20", "PT", "RET", "SIM", "TCH",
+    "PTH", "PLR", "PLW", "ARG", "ERA", "RUF", "Q"]
+ignore = [
+    "A003",
+    "ERA001",
+    "RUF001",
+    "RUF002",
+    "RUF003",
+    "UP007",
+    "E501",
+    "PLR0911",
+]
+fixable = ["F", "E", "W", "C90", "N", "UP", "B", "A", "PL", "C4", "EXE", "ISC", "PIE", "T20", "PT", "RET", "SIM", "TCH",
+    "PTH", "PLR", "PLW", "ARG", "ERA", "RUF", "Q"]
+exclude = [
+    ".git",
+    ".ruff_cache",
+    "volatility3",
+    "io",
+    "docs",
+]
+line-length = 80
+target-version = "py311"
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15
+
+[tool.isort]
+profile = "black"
+py_version=311
+line_length=80
+
+[tool.black]
+line-length = 80
+target-version = ['py311']

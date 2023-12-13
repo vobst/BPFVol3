@@ -1,4 +1,6 @@
-.zsh_history
+.bash_history
 io/*/*
 !io/*/.gitkeep
 __pycache__
+.env/
+volatility3/
