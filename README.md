@@ -104,7 +104,8 @@ $ ./scripts/vol.sh --run
 │   │       └── krie.md
 │   └── media
 │       ├── alpha_logo.jpeg
-│       └── krie-3410c66d-26be0e1ef560.elf.png
+│       ├── krie-3410c66d-26be0e1ef560.elf.png
+│       └── krie-3410c66d-26be0e1ef560_filtered.png
 ├── io
 │   ├── cache
 │   ├── dumps
@@ -118,8 +119,8 @@ $ ./scripts/vol.sh --run
 │   ├── bashrc
 │   ├── container_init
 │   ├── fix_symbols.sh
-│   ├── pack_dump.sh
-│   └── gen_symbols.sh
+│   ├── gen_symbols.sh
+│   └── pack_dump.sh
 ├── src
 │   ├── patches
 │   │   ├── v2.4.2.patch
