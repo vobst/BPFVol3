@@ -1,3 +1,22 @@
+diff --git a/volatility3/framework/objects/__init__.py b/volatility3/framework/objects/__init__.py
+index 3b174571..50a4dba0 100644
+--- a/volatility3/framework/objects/__init__.py
++++ b/volatility3/framework/objects/__init__.py
+@@ -596,9 +596,11 @@ class Enumeration(interfaces.objects.ObjectInterface, int):
+                 # Technically this shouldn't be a problem, but since we inverse cache
+                 # and can't map one value to two possibilities we throw an exception during build
+                 # We can remove/work around this if it proves a common issue
+-                raise ValueError(
+-                    f"Enumeration value {v} duplicated as {k} and {inverse_choices[v]}"
+-                )
++                # raise ValueError(
++                #     f"Enumeration value {v} duplicated as {k} and {inverse_choices[v]}"
++                # )
++                # Crude hack to deal with https://github.com/vobst/BPFVol3/issues/39, should be addressed properly upstream
++                vollog.warn(f"Enumeration value {v} duplicated as {k} and {inverse_choices[v]}. Keeping {v} -> {inverse_choices[v]}")
+             inverse_choices[v] = k
+         return inverse_choices
+
 diff --git a/volatility3/framework/symbols/linux/__init__.py b/volatility3/framework/symbols/linux/__init__.py
 index 5c42a436..bbd5373a 100644
 --- a/volatility3/framework/symbols/linux/__init__.py
