@@ -102,28 +102,35 @@ class Btf:
         type_id = self._resolved_type_id(type_id)
         return type_id, self._type_by_id(type_id)
 
+    def get_start_id(self, btf: interfaces.objects.ObjectInterface) -> int:
+        if btf.has_member("start_id"):
+            # >= 5.11-rc1, 951bb64
+            return int(btf.start_id)
+        return 0
+
     def _resolved_type_id(self, type_id: int) -> int:
         # btf_resolved_type_id
         btf = self.btf
-        while type_id < btf.start_id:
+
+        while type_id < self.get_start_id(btf):
             btf = btf.base_btf
         return btf.resolved_ids.dereference().cast(
             "array",
             count=0xFFFF,
             subtype=get_vol_template("unsigned int", self.context),
-        )[type_id - btf.start_id]
+        )[type_id - self.get_start_id(btf)]
 
     def _type_by_id(self, type_id: int) -> interfaces.objects.ObjectInterface:
         # btf_type_by_id
         btf = self.btf
-        while type_id < btf.start_id:
+        while type_id < self.get_start_id(btf):
             btf = btf.base_btf
         return array_of_pointers(
             btf.types.dereference(),
             btf.nr_types,
             make_vol_type("btf_type", self.context),
             self.context,
-        )[type_id - btf.start_id].dereference()
+        )[type_id - self.get_start_id(btf)].dereference()
 
     def _get_string(self, offset: int) -> str:
         """Fetch a string from the string table"""
