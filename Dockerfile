@@ -33,8 +33,9 @@ WORKDIR /opt/vol
 RUN git clone							\
         https://github.com/volatilityfoundation/volatility3.git && \
     cd volatility3						&& \
-    git checkout tags/v${VOL_VER}           			&& \
-    pip3 install -r requirements-dev.txt			&& \
+    git checkout tags/v${VOL_VER}				|| \
+    git checkout ${VOL_VER}					&& \
+    pip3 install --no-cache-dir -r requirements-dev.txt		&& \
     pip3 install --no-cache-dir					\
 	networkx						\
 	pygraphviz

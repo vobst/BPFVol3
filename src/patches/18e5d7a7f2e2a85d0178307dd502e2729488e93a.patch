@@ -1,0 +1,62 @@
+diff --git a/volatility3/framework/automagic/linux.py b/volatility3/framework/automagic/linux.py
+index 2eebcc2d..3ab66283 100644
+--- a/volatility3/framework/automagic/linux.py
++++ b/volatility3/framework/automagic/linux.py
+@@ -156,6 +156,17 @@ class LinuxIntelStacker(interfaces.automagic.StackerLayerInterface):
+                 and init_task.state.cast("unsigned int") != 0
+             ):
+                 continue
++            elif (
++                init_task.active_mm.cast("long unsigned int")
++                == module.get_symbol("init_mm").address
++                and init_task.tasks.next.cast("long unsigned int")
++                == init_task.tasks.prev.cast("long unsigned int")
++            ):
++                # The idle task steals `mm` from previously running task, i.e.,
++                # `init_mm` is only used as long as no CPU has ever been idle.
++                # This catches cases where we found a fragment of the
++                # unrelocated ELF file instead of the running kernel.
++                continue
+ 
+             # This we get for free
+             aslr_shift = (
+diff --git a/volatility3/framework/objects/__init__.py b/volatility3/framework/objects/__init__.py
+index 3b174571..5c0f6025 100644
+--- a/volatility3/framework/objects/__init__.py
++++ b/volatility3/framework/objects/__init__.py
+@@ -593,12 +593,7 @@ class Enumeration(interfaces.objects.ObjectInterface, int):
+         inverse_choices: Dict[int, str] = {}
+         for k, v in choices.items():
+             if v in inverse_choices:
+-                # Technically this shouldn't be a problem, but since we inverse cache
+-                # and can't map one value to two possibilities we throw an exception during build
+-                # We can remove/work around this if it proves a common issue
+-                raise ValueError(
+-                    f"Enumeration value {v} duplicated as {k} and {inverse_choices[v]}"
+-                )
++                continue
+             inverse_choices[v] = k
+         return inverse_choices
+ 
+diff --git a/volatility3/framework/symbols/linux/__init__.py b/volatility3/framework/symbols/linux/__init__.py
+index 894be0dc..df6481f2 100644
+--- a/volatility3/framework/symbols/linux/__init__.py
++++ b/volatility3/framework/symbols/linux/__init__.py
+@@ -29,7 +29,6 @@ class LinuxKernelIntermedSymbols(intermed.IntermediateSymbolTable):
+         self.set_type_class("files_struct", extensions.files_struct)
+         self.set_type_class("kobject", extensions.kobject)
+         self.set_type_class("cred", extensions.cred)
+-        self.set_type_class("kernel_cap_struct", extensions.kernel_cap_struct)
+         # Might not exist in the current symbols
+         self.optional_set_type_class("module", extensions.module)
+         self.optional_set_type_class("bpf_prog", extensions.bpf_prog)
+@@ -265,6 +264,9 @@ class LinuxUtilities(interfaces.configuration.VersionableInterface):
+ 
+         for fd_num, filp in enumerate(fds):
+             if filp != 0:
++                # workaround for #922
++                filp = filp.dereference().cast(file_type)
++
+                 full_path = LinuxUtilities.path_for_file(context, task, filp)
+ 
+                 yield fd_num, filp, full_path
