@@ -10,7 +10,8 @@ VOL_SYM=${VOL_BASE}/symbols/linux
 VOL_PLUG=${VOL_BASE}/plugins/linux
 VOL_UTIL=${VOL_BASE}/utility
 VOL_CACHE=/root/.cache/volatility3
-VOL_VER=2.5.0
+#VOL_VER=2.5.0
+VOL_VER=18e5d7a7f2e2a85d0178307dd502e2729488e93a
 
 PLUG="$(pwd)/src/plugins"
 UTIL="$(pwd)/src/utility"
