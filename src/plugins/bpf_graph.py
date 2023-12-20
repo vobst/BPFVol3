@@ -3,9 +3,11 @@
 
 """A Volatility3 plugin that tries to visualize the state of the BPF
 subsystem as a graph."""
+import colorsys
 import logging
 from collections.abc import Callable, Iterable
 from enum import Enum
+from hashlib import sha256
 from typing import ClassVar
 
 import networkx as nx
@@ -168,8 +170,16 @@ def _restict_to_components(
     return nx.compose_all(components)
 
 
-def _get_color(hashable) -> str:
-    return "#" + hex(hash(hashable))[-6:].upper()
+def _get_color(stringable) -> str:
+    value: int = (
+        int.from_bytes(sha256(str(stringable).encode()).digest()[:4], "little")
+        & 0xFFFFFFFF
+    )
+    hsv: tuple[float, float, float] = (value / 0xFFFFFFFF, 0.1, 1.0)
+    rgb: tuple[float, float, float] = colorsys.hsv_to_rgb(*hsv)
+    hex_string = "".join(f"{int(i * 255):X}" for i in rgb)
+
+    return f"#{hex_string}"
 
 
 class BpfGraph(PluginInterface):
