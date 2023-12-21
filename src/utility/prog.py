@@ -32,7 +32,11 @@ from volatility3.framework.objects.utility import (
     array_to_string,
 )
 from volatility3.utility.btf import Btf, BtfError
-from volatility3.utility.helpers import get_vol_template, make_vol_type
+from volatility3.utility.helpers import (
+    get_object,
+    get_vol_template,
+    make_vol_type,
+)
 from volatility3.utility.map import BpfMap
 
 if TYPE_CHECKING:
@@ -63,14 +67,17 @@ class BpfProgSym(NamedTuple):
 class BpfProg:
     def __init__(
         self,
-        prog: ObjectInterface,
+        prog: ObjectInterface | int,
         context: ContextInterface,
     ) -> None:
-        self.prog: ObjectInterface = (
-            prog
-            if prog.vol.type_name == make_vol_type("bpf_prog", context)
-            else prog.dereference().cast("bpf_prog")
-        )
+        if isinstance(prog, int):
+            self.prog = get_object("bpf_prog", prog, context)
+        else:
+            self.prog: ObjectInterface = (
+                prog
+                if prog.vol.type_name == make_vol_type("bpf_prog", context)
+                else prog.dereference().cast("bpf_prog")
+            )
         self.context: ContextInterface = context
         self.vmlinux: ModuleInterface = self.context.modules["kernel"]
         self.types = Enum(
