@@ -86,6 +86,7 @@ $ ./scripts/vol.sh --run
 
 - User manuals for the different plugins can be found in the `docs/` folder
 - Case studies (including memory dumps and symbol files) can be found in the `docs/examples` folder
+- There is a post about this project on [my blog](https://blog.eb9f.de/2023/12/21/bpf_memory_forensics_with_volatility_3.html)
 - Below you can get an overview of the project
 
 ```
