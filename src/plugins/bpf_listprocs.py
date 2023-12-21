@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 """A Volatility3 plugin that lists processes that hold BPF objects via fd."""
+import logging
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -23,8 +24,8 @@ from volatility3.utility.prog import BpfProg
 if TYPE_CHECKING:
     from volatility3.framework.interfaces.objects import ObjectInterface
 
-# note: systemd-journal always has an fd for the lowest-id map loaded by the
-#   example process (stange bug...)
+
+vollog: logging.Logger = logging.getLogger(__name__)
 
 
 class BpfPslist(PluginInterface):
@@ -78,6 +79,9 @@ class BpfPslist(PluginInterface):
             if vmlinux.has_symbol("bpf_link_fops")
             else -1
         )
+        vollog.debug(
+            f"file_operations at: prog {hex(bpf_prog_fops)}, map {hex(bpf_map_fops)}, link {hex(bpf_link_fops)}"
+        )
 
         progs: list[BpfProg] = []
         maps: list[BpfMap] = []
@@ -87,16 +91,17 @@ class BpfPslist(PluginInterface):
         ] = Lsof.list_fds(context, symbol_table)
         saved_pid: int | None = None
         saved_task: task_struct | None = None
-        for pid, _, _task, fd_fields in fds_generator:
+        for pid, comm, _task, fd_fields in fds_generator:
             # first iteration
             if saved_task is None or saved_pid is None:
                 saved_pid = int(pid)
                 saved_task = _task
 
             # next task
-            if pid != saved_pid and (progs or maps or links):
-                yield saved_task, progs, maps, links
-                saved_pid = pid
+            if pid != saved_pid:
+                if progs or maps or links:
+                    yield saved_task, progs, maps, links
+                saved_pid = int(pid)
                 saved_task = _task
                 progs.clear()
                 maps.clear()
@@ -104,12 +109,15 @@ class BpfPslist(PluginInterface):
 
             # add if BPF object
             filp: ObjectInterface = fd_fields[1]
+            vollog.debug(
+                f"Checking: pid {pid}, comm {comm}, fd {fd_fields[0]}, op {hex(int(filp.f_op))} {vmlinux.get_symbols_by_absolute_location(int(filp.f_op))}"
+            )
             if int(filp.f_op) == bpf_prog_fops:
-                progs.append(BpfProg(filp.private_data, context))
+                progs.append(BpfProg(int(filp.private_data), context))
             elif int(filp.f_op) == bpf_map_fops:
-                maps.append(BpfMap(filp.private_data, context))
+                maps.append(BpfMap(int(filp.private_data), context))
             elif int(filp.f_op) == bpf_link_fops:
-                links.append(BpfLink(filp.private_data, context))
+                links.append(BpfLink(int(filp.private_data), context))
             else:
                 continue
 

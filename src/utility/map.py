@@ -19,7 +19,7 @@ from volatility3.framework.interfaces.objects import ObjectInterface
 from volatility3.framework.objects.utility import array_to_string
 from volatility3.framework.symbols.linux import LinuxUtilities
 from volatility3.utility.btf import Btf, BtfError
-from volatility3.utility.helpers import make_vol_type
+from volatility3.utility.helpers import get_object, make_vol_type
 
 vollog: logging.Logger = logging.getLogger(__name__)
 
@@ -27,14 +27,18 @@ vollog: logging.Logger = logging.getLogger(__name__)
 class BpfMap:
     def __init__(
         self,
-        m: ObjectInterface,
+        m: ObjectInterface | int,
         context: ContextInterface,
     ) -> None:
-        self.map: ObjectInterface = (
-            m
-            if m.vol.type_name == make_vol_type("bpf_map", context)
-            else m.dereference().cast("bpf_map")
-        )
+        # our caller might give us a pointer to any type, lets unify it
+        if isinstance(m, int):
+            self.map = get_object("bpf_map", m, context)
+        else:
+            self.map: ObjectInterface = (
+                m
+                if m.vol.type_name == make_vol_type("bpf_map", context)
+                else m.dereference().cast("bpf_map")
+            )
         self.context: ContextInterface = context
         self.vmlinux: ModuleInterface = self.context.modules["kernel"]
         self.types = Enum(

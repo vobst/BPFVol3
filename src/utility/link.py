@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from volatility3.framework import constants
 from volatility3.framework.objects.utility import pointer_to_string
 from volatility3.framework.symbols.linux import LinuxUtilities
-from volatility3.utility.helpers import make_vol_type
+from volatility3.utility.helpers import get_object, make_vol_type
 
 if TYPE_CHECKING:
     from volatility3.framework.interfaces.context import (
@@ -31,15 +31,18 @@ MAX_STR_LEN: int = 256
 class BpfLink:
     def __init__(
         self,
-        link: ObjectInterface,
+        link: ObjectInterface | int,
         context: ContextInterface,
     ) -> None:
         # our caller might give us a pointer to any type, lets unify it
-        self.link: ObjectInterface = (
-            link
-            if link.vol.type_name == make_vol_type("bpf_link", context)
-            else link.dereference().cast("bpf_link")
-        )
+        if isinstance(link, int):
+            self.link = get_object("bpf_link", link, context)
+        else:
+            self.link: ObjectInterface = (
+                link
+                if link.vol.type_name == make_vol_type("bpf_link", context)
+                else link.dereference().cast("bpf_link")
+            )
         self.context: ContextInterface = context
         self.vmlinux: ModuleInterface = self.context.modules["kernel"]
 
