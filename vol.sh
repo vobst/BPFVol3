@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+DOCKER_CMD="sudo -E docker"
+
 VOL_BASE=/opt/vol/volatility3/volatility3
 VOL_SYM=${VOL_BASE}/symbols/linux
 # note: There seems to be a problem with importing a python module via
@@ -17,6 +19,7 @@ PLUG="$(pwd)/src/plugins"
 UTIL="$(pwd)/src/utility"
 PATCH="$(pwd)/src/patches"
 SYM="$(pwd)/io/symbols"
+SCRIPTS="$(pwd)/scripts"
 CACHE="$(pwd)/io/cache"
 BASH_HISTORY="$(pwd)/.bash_history"
 BASH_RC="$(pwd)/scripts/bashrc"
@@ -38,11 +41,13 @@ while (("$#")); do
     case "$1" in
         -r | --run)
             # Run the vol container
-            docker run \
+            shift 1
+            $DOCKER_CMD run \
                 --name BPFVol3_analysis \
                 --rm \
                 -it \
                 -v "$(pwd)/io:/io" \
+                -v "${SCRIPTS}:/io/scripts" \
                 -v "${PLUG}:/plug" \
                 -v "${UTIL}:${VOL_UTIL}" \
                 -v "${PATCH}:/patches" \
@@ -54,15 +59,15 @@ while (("$#")); do
                 -e VOL_VER=${VOL_VER} \
                 -w="${VOL_BASE}/.." \
                 bpfvol3:latest \
-                /bin/container_init ||
+                /bin/container_init $@ ||
                 exit 1
 
             exit 0
             ;;
         -s | --shell)
             # Run a shell in the vol container
-            CID=$(docker container list -lq)
-            docker exec \
+            CID=$($DOCKER_CMD container list -lq)
+            $DOCKER_CMD exec \
                 -it \
                 ${CID} \
                 /bin/bash ||
@@ -72,7 +77,7 @@ while (("$#")); do
             ;;
         -b | --build)
             # Build the vol container
-            docker build \
+            $DOCKER_CMD build \
                 --build-arg VOL_VER=${VOL_VER} \
                 -t bpfvol3:latest \
                 - <./Dockerfile
