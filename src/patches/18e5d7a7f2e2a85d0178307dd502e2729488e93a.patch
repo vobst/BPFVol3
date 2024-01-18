@@ -1,8 +1,8 @@
 diff --git a/volatility3/framework/automagic/linux.py b/volatility3/framework/automagic/linux.py
-index 2eebcc2d..3ab66283 100644
+index 2eebcc2d..c444fe34 100644
 --- a/volatility3/framework/automagic/linux.py
 +++ b/volatility3/framework/automagic/linux.py
-@@ -156,6 +156,17 @@ class LinuxIntelStacker(interfaces.automagic.StackerLayerInterface):
+@@ -156,6 +156,18 @@ class LinuxIntelStacker(interfaces.automagic.StackerLayerInterface):
                  and init_task.state.cast("unsigned int") != 0
              ):
                  continue
@@ -16,10 +16,26 @@ index 2eebcc2d..3ab66283 100644
 +                # `init_mm` is only used as long as no CPU has ever been idle.
 +                # This catches cases where we found a fragment of the
 +                # unrelocated ELF file instead of the running kernel.
++                vollog.error(f"Skipping Match!!!")
 +                continue
  
              # This we get for free
              aslr_shift = (
+diff --git a/volatility3/framework/interfaces/symbols.py b/volatility3/framework/interfaces/symbols.py
+index b645f5cd..03ddd19f 100644
+--- a/volatility3/framework/interfaces/symbols.py
++++ b/volatility3/framework/interfaces/symbols.py
+@@ -59,6 +59,10 @@ class SymbolInterface:
+     @property
+     def type(self) -> Optional[objects.Template]:
+         """Returns the type that the symbol represents."""
++        if self._type is not None:
++            #import traceback
++            #print(traceback.print_stack())
++            print(f"GREPME {self.name} {self._type.vol.type_name.split('!')[1]}")
+         return self._type
+ 
+     @property
 diff --git a/volatility3/framework/objects/__init__.py b/volatility3/framework/objects/__init__.py
 index 3b174571..5c0f6025 100644
 --- a/volatility3/framework/objects/__init__.py
@@ -86,3 +102,16 @@ index d8a2867c..c9f22ee6 100644
 +    def get_ip6_ptr(self):
 +        # in kernel < 3.0.0, ip6_ptr is a void pointer, so we need to cast it to inet6_dev
 +        return self.ip6_ptr.dereference().cast('inet6_dev')
+diff --git a/volatility3/schemas/schema-6.2.0.json b/volatility3/schemas/schema-6.2.0.json
+index 1f388005..65a6f5c6 100644
+--- a/volatility3/schemas/schema-6.2.0.json
++++ b/volatility3/schemas/schema-6.2.0.json
+@@ -105,7 +105,7 @@
+       "properties": {
+         "kind": {
+           "type": "string",
+-          "pattern": "^(dwarf|symtab|system-map)$"
++          "pattern": "^(btf|symdb|dwarf|symtab|system-map)$"
+         },
+         "name": {
+           "type": "string"
