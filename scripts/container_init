@@ -10,7 +10,7 @@ git apply "/patches/v${VOL_VER}.patch" 2>/dev/null ||
 upd
 
 if [[ $# -ne 0 ]]; then
-    /bin/bash -i /io/scripts/$@
+    /bin/bash -i /io/$@
 else
     /bin/bash -i
 fi
