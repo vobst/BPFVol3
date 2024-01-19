@@ -24,9 +24,9 @@ mv "${kernel_path}" "${kernel}"
 mv "${systemmap_path}" "${system_map}"
 
 btf2json \
+    --verbose \
     --btf "io/kernels/${kernel_name}-${kernelhash}.elf" \
-    --map "io/kernels/${kernel_name}-${kernelhash}-${maphash}.map" |
-    tee "$symbols"
+    --map "io/kernels/${kernel_name}-${kernelhash}-${maphash}.map" >"$symbols"
 
 ./scripts/validate_schema.py \
     "$symbols" \
@@ -46,7 +46,7 @@ $DOCKER_CMD run \
     -v "$(pwd)/io:/io" \
     -w="/io" \
     bpfvol3:latest \
-    /bin/bash -c "$d2j linux --elf $kernel --system-map $system_map | tee $symbols"
+    /bin/bash -c "$d2j linux --elf $kernel --system-map $system_map >$symbols"
 
 # uncomment if experience missing basic types
 #symbols="./io/symbols/${kernelhash}.isf.json"
