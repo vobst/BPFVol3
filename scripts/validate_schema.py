@@ -32,10 +32,14 @@ CHECKER_ALL = FormatChecker(
 
 
 def main():
-    target = json.load(open(sys.argv[1]))
-    schema = json.load(open(sys.argv[2]))
+    target_file = sys.argv[1]
+    schema_file = sys.argv[2]
+    target = json.load(open(target_file))
+    schema = json.load(open(schema_file))
     try:
-        print(f"Validating {target} against {schema}. This may take a while...")
+        print(
+            f"Validating {target_file} against {schema_file}. This may take a while..."
+        )
         validate(target, schema, format_checker=CHECKER_ALL)
         print("OK")
     except SchemaError as e:
