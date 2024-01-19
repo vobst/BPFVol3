@@ -22,17 +22,18 @@ index 2eebcc2d..c444fe34 100644
              # This we get for free
              aslr_shift = (
 diff --git a/volatility3/framework/interfaces/symbols.py b/volatility3/framework/interfaces/symbols.py
-index b645f5cd..03ddd19f 100644
+index b645f5cd..dffeceff 100644
 --- a/volatility3/framework/interfaces/symbols.py
 +++ b/volatility3/framework/interfaces/symbols.py
-@@ -59,6 +59,10 @@ class SymbolInterface:
+@@ -59,6 +59,11 @@ class SymbolInterface:
      @property
      def type(self) -> Optional[objects.Template]:
          """Returns the type that the symbol represents."""
 +        if self._type is not None:
 +            #import traceback
 +            #print(traceback.print_stack())
-+            print(f"GREPME {self.name} {self._type.vol.type_name.split('!')[1]}")
++            #print(f"GREPME {self.name} {self._type.vol.type_name.split('!')[1]}")
++            pass
          return self._type
  
      @property
